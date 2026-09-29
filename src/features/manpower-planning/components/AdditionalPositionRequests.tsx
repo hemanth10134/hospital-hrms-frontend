@@ -2,7 +2,9 @@ import { useState } from 'react'
 import type { Lookup, PositionRequest } from '../../../types/manpowerPlanning'
 import { SectionCard } from '../../../components/SectionCard'
 import { formatCurrency } from '../../../utils/formatters'
+import { STEP_THEMES } from '../stepTheme'
 import { CreatePositionRequestModal, type PositionRequestDraft } from './CreatePositionRequestModal'
+import { PositionRequestDetailModal } from './PositionRequestDetailModal'
 
 const STATUS_STYLES: Record<PositionRequest['status'], string> = {
   PENDING_APPROVAL: 'bg-amber-100 text-amber-700',
@@ -34,17 +36,19 @@ export function AdditionalPositionRequests({
   disabled,
 }: AdditionalPositionRequestsProps) {
   const [isCreating, setIsCreating] = useState(false)
+  const [viewingRequest, setViewingRequest] = useState<PositionRequest | null>(null)
 
   return (
     <SectionCard
-      stepNumber={4}
-      color="#db2777"
+      stepNumber={STEP_THEMES.positionRequests.stepNumber}
+      color={STEP_THEMES.positionRequests.color}
+      tintColor={STEP_THEMES.positionRequests.tintColor}
       title="Additional Position Requests"
       description='If you need to open positions beyond the planned requirement, create a new position request. These will go for approval.'
       actions={
         <button
           type="button"
-          className="rounded-md border border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+          className="app-button rounded-md border border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-50"
           disabled={disabled || !department}
           onClick={() => setIsCreating(true)}
         >
@@ -53,7 +57,7 @@ export function AdditionalPositionRequests({
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[800px] border-collapse text-sm">
+        <table className="w-full min-w-[900px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-slate-500">
               <th className="py-2 pr-3">#</th>
@@ -63,27 +67,42 @@ export function AdditionalPositionRequests({
               <th className="py-2 pr-3">Additional Monthly Budget (₹)</th>
               <th className="py-2 pr-3">Status</th>
               <th className="py-2 pr-3">Requested By</th>
+              <th className="py-2 pr-3">Action</th>
             </tr>
           </thead>
           <tbody>
             {requests.map((request, index) => (
-              <tr key={request.id} className="border-b border-slate-100">
+              <tr
+                key={request.id}
+                className="animate-row-enter border-b border-slate-100 transition-colors hover:bg-slate-50"
+              >
                 <td className="py-2 pr-3 text-slate-500">{index + 1}</td>
                 <td className="py-2 pr-3 font-medium text-slate-800">{request.designation.name}</td>
                 <td className="py-2 pr-3">{request.requestedPositions}</td>
                 <td className="py-2 pr-3">{request.reason}</td>
                 <td className="py-2 pr-3">{formatCurrency(request.additionalMonthlyBudget)}</td>
                 <td className="py-2 pr-3">
-                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[request.status]}`}>
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${STATUS_STYLES[request.status]}`}
+                  >
                     {STATUS_LABELS[request.status]}
                   </span>
                 </td>
                 <td className="py-2 pr-3">{request.requestedBy}</td>
+                <td className="py-2 pr-3">
+                  <button
+                    type="button"
+                    className="app-button rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm"
+                    onClick={() => setViewingRequest(request)}
+                  >
+                    View
+                  </button>
+                </td>
               </tr>
             ))}
             {requests.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-slate-400">
+                <td colSpan={8} className="py-6 text-center text-slate-400">
                   No additional position requests yet.
                 </td>
               </tr>
@@ -102,6 +121,10 @@ export function AdditionalPositionRequests({
             setIsCreating(false)
           }}
         />
+      )}
+
+      {viewingRequest && (
+        <PositionRequestDetailModal request={viewingRequest} onClose={() => setViewingRequest(null)} />
       )}
     </SectionCard>
   )

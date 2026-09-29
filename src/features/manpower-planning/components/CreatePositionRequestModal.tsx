@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Lookup } from '../../../types/manpowerPlanning'
+import { ModalShell } from '../../../components/ModalShell'
 
 export interface PositionRequestDraft {
   designationId: string
@@ -15,6 +16,9 @@ interface CreatePositionRequestModalProps {
   onCancel: () => void
   onSave: (draft: PositionRequestDraft) => void
 }
+
+const INPUT_CLASS =
+  'rounded-md border border-slate-300 px-3 py-2 transition-shadow focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-500'
 
 export function CreatePositionRequestModal({
   department,
@@ -32,88 +36,90 @@ export function CreatePositionRequestModal({
     designationId !== '' && requestedPositions > 0 && reason.trim() !== '' && requestedBy.trim() !== ''
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-        <h3 className="mb-1 text-lg font-semibold text-slate-800">Create Position Request</h3>
-        <p className="mb-4 text-sm text-slate-500">Department: {department.name}</p>
+    <ModalShell>
+      <h3 className="mb-1 text-lg font-semibold text-slate-800">Create Position Request</h3>
+      <p className="mb-4 text-sm text-slate-500">Department: {department.name}</p>
 
-        <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Designation</span>
-            <select
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={designationId}
-              onChange={(event) => setDesignationId(event.target.value)}
-            >
-              <option value="" disabled>
-                Select designation
-              </option>
-              {designationOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Requested Positions</span>
-            <input
-              type="number"
-              min={1}
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={requestedPositions}
-              onChange={(event) => setRequestedPositions(Number(event.target.value))}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Reason</span>
-            <textarea
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Additional Monthly Budget (₹)</span>
-            <input
-              type="number"
-              min={0}
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={additionalMonthlyBudget}
-              onChange={(event) => setAdditionalMonthlyBudget(Number(event.target.value))}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Requested By</span>
-            <input
-              type="text"
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={requestedBy}
-              onChange={(event) => setRequestedBy(event.target.value)}
-            />
-          </label>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            disabled={!isValid}
-            onClick={() =>
-              onSave({ designationId, requestedPositions, reason, additionalMonthlyBudget, requestedBy })
-            }
+      <div className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Designation</span>
+          <select
+            className={`app-select ${INPUT_CLASS}`}
+            value={designationId}
+            onChange={(event) => setDesignationId(event.target.value)}
           >
-            Submit Request
-          </button>
-        </div>
+            <option value="" disabled>
+              Select designation
+            </option>
+            {designationOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Requested Positions</span>
+          <input
+            type="number"
+            min={1}
+            className={INPUT_CLASS}
+            value={requestedPositions}
+            onChange={(event) => setRequestedPositions(Number(event.target.value))}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Reason</span>
+          <textarea
+            className={INPUT_CLASS}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Additional Monthly Budget (₹)</span>
+          <input
+            type="number"
+            min={0}
+            className={INPUT_CLASS}
+            value={additionalMonthlyBudget}
+            onChange={(event) => setAdditionalMonthlyBudget(Number(event.target.value))}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Requested By</span>
+          <input
+            type="text"
+            className={INPUT_CLASS}
+            value={requestedBy}
+            onChange={(event) => setRequestedBy(event.target.value)}
+          />
+        </label>
       </div>
-    </div>
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          type="button"
+          className="app-button rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="app-button rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
+          disabled={!isValid}
+          onClick={() =>
+            onSave({ designationId, requestedPositions, reason, additionalMonthlyBudget, requestedBy })
+          }
+        >
+          Submit Request
+        </button>
+      </div>
+    </ModalShell>
   )
 }

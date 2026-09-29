@@ -1,6 +1,7 @@
 import type { Lookup, PlanningPeriod } from '../../../types/manpowerPlanning'
 import { SectionCard } from '../../../components/SectionCard'
 import { SelectField } from '../../../components/SelectField'
+import { STEP_THEMES } from '../stepTheme'
 
 export interface HospitalPlanningSelection {
   organizationId: string
@@ -33,8 +34,9 @@ export function HospitalPlanningDetails({
 }: HospitalPlanningDetailsProps) {
   return (
     <SectionCard
-      stepNumber={1}
-      color="#2563eb"
+      stepNumber={STEP_THEMES.basicDetails.stepNumber}
+      color={STEP_THEMES.basicDetails.color}
+      tintColor={STEP_THEMES.basicDetails.tintColor}
       title="Hospital &amp; Planning Details"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -73,7 +75,7 @@ export function HospitalPlanningDetails({
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-slate-600">Planning Period</span>
           <select
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 disabled:bg-slate-100"
+            className="app-select rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 disabled:bg-slate-100"
             value={selection.planningPeriodId}
             disabled={disabled}
             onChange={(event) => onChange({ ...selection, planningPeriodId: event.target.value })}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { DesignationLine, Lookup } from '../../../types/manpowerPlanning'
+import { ModalShell } from '../../../components/ModalShell'
 
 interface AddDesignationModalProps {
   designationOptions: Lookup[]
@@ -7,6 +8,9 @@ interface AddDesignationModalProps {
   onCancel: () => void
   onSave: (line: DesignationLine) => void
 }
+
+const INPUT_CLASS =
+  'rounded-md border border-slate-300 px-3 py-2 transition-shadow focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-500'
 
 export function AddDesignationModal({
   designationOptions,
@@ -37,91 +41,93 @@ export function AddDesignationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-        <h3 className="mb-4 text-lg font-semibold text-slate-800">
-          {initialValue ? 'Edit Designation' : 'Add Designation'}
-        </h3>
+    <ModalShell>
+      <h3 className="mb-4 text-lg font-semibold text-slate-800">
+        {initialValue ? 'Edit Designation' : 'Add Designation'}
+      </h3>
 
-        <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Designation</span>
-            <select
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={designationId}
-              onChange={(event) => setDesignationId(event.target.value)}
-            >
-              <option value="" disabled>
-                Select designation
-              </option>
-              {designationOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Staffing Ratio (beds per staff)</span>
-            <input
-              type="number"
-              min={0.01}
-              step={0.5}
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={staffingRatio}
-              onChange={(event) => setStaffingRatio(Number(event.target.value))}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Monthly Salary (₹)</span>
-            <input
-              type="number"
-              min={0}
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={monthlySalary}
-              onChange={(event) => setMonthlySalary(Number(event.target.value))}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Leave Buffer (%)</span>
-            <input
-              type="number"
-              min={0}
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={leaveBufferPct}
-              onChange={(event) => setLeaveBufferPct(Number(event.target.value))}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Current Staff</span>
-            <input
-              type="number"
-              min={0}
-              className="rounded-md border border-slate-300 px-3 py-2"
-              value={currentStaff}
-              onChange={(event) => setCurrentStaff(Number(event.target.value))}
-            />
-          </label>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            disabled={!isValid}
-            onClick={handleSubmit}
+      <div className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Designation</span>
+          <select
+            className={`app-select ${INPUT_CLASS}`}
+            value={designationId}
+            onChange={(event) => setDesignationId(event.target.value)}
           >
-            Save
-          </button>
-        </div>
+            <option value="" disabled>
+              Select designation
+            </option>
+            {designationOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Staffing Ratio (beds per staff)</span>
+          <input
+            type="number"
+            min={0.01}
+            step={0.5}
+            className={INPUT_CLASS}
+            value={staffingRatio}
+            onChange={(event) => setStaffingRatio(Number(event.target.value))}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Monthly Salary (₹)</span>
+          <input
+            type="number"
+            min={0}
+            className={INPUT_CLASS}
+            value={monthlySalary}
+            onChange={(event) => setMonthlySalary(Number(event.target.value))}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Leave Buffer (%)</span>
+          <input
+            type="number"
+            min={0}
+            className={INPUT_CLASS}
+            value={leaveBufferPct}
+            onChange={(event) => setLeaveBufferPct(Number(event.target.value))}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Current Staff</span>
+          <input
+            type="number"
+            min={0}
+            className={INPUT_CLASS}
+            value={currentStaff}
+            onChange={(event) => setCurrentStaff(Number(event.target.value))}
+          />
+        </label>
       </div>
-    </div>
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          type="button"
+          className="app-button rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="app-button rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
+          disabled={!isValid}
+          onClick={handleSubmit}
+        >
+          Save
+        </button>
+      </div>
+    </ModalShell>
   )
 }

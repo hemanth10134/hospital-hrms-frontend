@@ -13,7 +13,7 @@ export function SelectField({ label, value, options, onChange, disabled }: Selec
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-medium text-slate-600">{label}</span>
       <select
-        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 disabled:bg-slate-100"
+        className="app-select rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 disabled:bg-slate-100"
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

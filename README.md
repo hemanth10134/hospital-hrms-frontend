@@ -19,8 +19,10 @@ npm install
 npm run dev
 ```
 
-App runs at `http://localhost:5173`. To point the frontend at a different backend
-URL, set `VITE_MANPOWER_PLANNING_API_BASE_URL` in a `.env.local` file.
+App runs at `http://localhost:5173`. In dev, API calls go to the relative path
+`/api/v1/...` and Vite's dev server proxies them to `http://localhost:8081` (see
+`vite.config.ts`) — no cross-origin request ever leaves the browser. To point at a
+different backend, set `VITE_MANPOWER_PLANNING_API_BASE_URL` in a `.env.local` file.
 
 ## Tests
 
@@ -33,3 +35,10 @@ npm run test
 ```bash
 npm run build
 ```
+
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Vercel/Netlify deploy steps. Production builds
+have no dev proxy, so `VITE_MANPOWER_PLANNING_API_BASE_URL` must be set to the real
+deployed backend URL at build time, and the backend's `CORS_ALLOWED_ORIGINS` must
+include the deployed frontend's origin.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Lookup, PlanningPeriod } from '../../../types/manpowerPlanning'
 import { referenceDataApi } from '../../../api/manpowerPlanningApi'
+import { httpClient } from '../../../api/httpClient'
 import type { HospitalPlanningSelection } from '../components/HospitalPlanningDetails'
 
 const MAX_RETRIES = 3
@@ -8,7 +9,8 @@ const RETRY_DELAY_MS = 1000
 
 function describeError(error: unknown): string {
   if (error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === 'ERR_NETWORK') {
-    return 'Could not reach the Manpower Planning backend. Confirm it is running at http://localhost:8081.'
+    return `Could not reach the Manpower Planning backend at "${httpClient.defaults.baseURL}". ` +
+      'Confirm the backend is running and reachable, and that its CORS settings allow this origin.'
   }
   return error instanceof Error ? error.message : 'Failed to load reference data.'
 }

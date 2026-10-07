@@ -1,5 +1,6 @@
 import { SectionCard } from '../../../components/SectionCard'
 import { STEP_THEMES } from '../stepTheme'
+import { parseNumericInput } from '../../../utils/numberInput'
 
 export interface DepartmentParameters {
   numberOfBeds: number
@@ -30,7 +31,7 @@ export function DepartmentDetails({ parameters, onChange, disabled }: Department
             className="rounded-md border border-slate-300 px-3 py-2 transition-shadow focus:outline-none focus:ring-3 focus:ring-blue-100 focus:border-blue-500 disabled:bg-slate-100"
             value={parameters.numberOfBeds}
             disabled={disabled}
-            onChange={(event) => onChange({ ...parameters, numberOfBeds: Number(event.target.value) })}
+            onChange={(event) => onChange({ ...parameters, numberOfBeds: parseNumericInput(event) })}
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
@@ -44,7 +45,7 @@ export function DepartmentDetails({ parameters, onChange, disabled }: Department
               value={parameters.departmentOperatingHours}
               disabled={disabled}
               onChange={(event) =>
-                onChange({ ...parameters, departmentOperatingHours: Number(event.target.value) })
+                onChange({ ...parameters, departmentOperatingHours: parseNumericInput(event) })
               }
             />
             <span className="text-sm text-slate-500">hours</span>
@@ -61,7 +62,7 @@ export function DepartmentDetails({ parameters, onChange, disabled }: Department
               value={parameters.employeeWorkingHours}
               disabled={disabled}
               onChange={(event) =>
-                onChange({ ...parameters, employeeWorkingHours: Number(event.target.value) })
+                onChange({ ...parameters, employeeWorkingHours: parseNumericInput(event) })
               }
             />
             <span className="text-sm text-slate-500">hours</span>

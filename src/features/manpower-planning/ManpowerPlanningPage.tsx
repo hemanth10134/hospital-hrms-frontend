@@ -14,6 +14,12 @@ import { summarize, withComputedFields } from './staffingCalculations'
 
 const CURRENT_USER = 'Sunita Sharma'
 
+const STATUS_BANNER_CLASSES: Record<'info' | 'success' | 'error', string> = {
+  info: 'border-blue-200 bg-blue-50 text-blue-700',
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  error: 'border-red-200 bg-red-50 text-red-700',
+}
+
 export function ManpowerPlanningPage() {
   const [selection, setSelection] = useState<HospitalPlanningSelection>({
     organizationId: '',
@@ -31,6 +37,7 @@ export function ManpowerPlanningPage() {
   const [positionRequests, setPositionRequests] = useState<PositionRequest[]>([])
   const [planId, setPlanId] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [statusTone, setStatusTone] = useState<'info' | 'success' | 'error'>('info')
   const [isSaving, setIsSaving] = useState(false)
 
   const [previousPlans, setPreviousPlans] = useState<ManpowerPlanListItem[]>([])
@@ -70,40 +77,64 @@ export function ManpowerPlanningPage() {
     selection.departmentId &&
     selection.planningPeriodId
 
+  async function persistPlan() {
+    const designations = designationLines.map((line) => ({
+      designationId: line.designationId,
+      staffingRatio: line.staffingRatio,
+      monthlySalary: line.monthlySalary,
+      leaveBufferPct: line.leaveBufferPct,
+      currentStaff: line.currentStaff,
+    }))
+
+    const saved = planId
+      ? await manpowerPlanApi.updatePlan(planId, {
+          numberOfBeds: parameters.numberOfBeds,
+          departmentOperatingHours: parameters.departmentOperatingHours,
+          employeeWorkingHours: parameters.employeeWorkingHours,
+          designations,
+        })
+      : await manpowerPlanApi.createPlan({
+          organizationId: selection.organizationId,
+          locationId: selection.locationId,
+          hospitalId: selection.hospitalId,
+          departmentId: selection.departmentId,
+          planningPeriodId: selection.planningPeriodId,
+          numberOfBeds: parameters.numberOfBeds,
+          departmentOperatingHours: parameters.departmentOperatingHours,
+          employeeWorkingHours: parameters.employeeWorkingHours,
+          createdBy: CURRENT_USER,
+          designations,
+        })
+
+    setPlanId(saved.id)
+    return saved
+  }
+
+  async function refreshPreviousPlans() {
+    if (!selection.hospitalId || !selection.departmentId) return
+    setIsLoadingPreviousPlans(true)
+    try {
+      const plans = await manpowerPlanApi.getPreviousPlans(selection.hospitalId, selection.departmentId)
+      setPreviousPlans(plans)
+    } finally {
+      setIsLoadingPreviousPlans(false)
+    }
+  }
+
   async function handleSaveAsDraft() {
     if (!isReadyToSave) {
+      setStatusTone('error')
       setStatusMessage('Please select organization, location, hospital, department and planning period first.')
       return
     }
     setIsSaving(true)
     setStatusMessage(null)
     try {
-      const payload = {
-        organizationId: selection.organizationId,
-        locationId: selection.locationId,
-        hospitalId: selection.hospitalId,
-        departmentId: selection.departmentId,
-        planningPeriodId: selection.planningPeriodId,
-        numberOfBeds: parameters.numberOfBeds,
-        departmentOperatingHours: parameters.departmentOperatingHours,
-        employeeWorkingHours: parameters.employeeWorkingHours,
-        createdBy: CURRENT_USER,
-        designations: designationLines.map((line) => ({
-          designationId: line.designationId,
-          staffingRatio: line.staffingRatio,
-          monthlySalary: line.monthlySalary,
-          leaveBufferPct: line.leaveBufferPct,
-          currentStaff: line.currentStaff,
-        })),
-      }
-
-      const saved = planId
-        ? await manpowerPlanApi.updatePlan(planId, payload)
-        : await manpowerPlanApi.createPlan(payload)
-
-      setPlanId(saved.id)
+      await persistPlan()
+      setStatusTone('success')
       setStatusMessage('Draft saved successfully.')
     } catch (error) {
+      setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to save draft.')
     } finally {
       setIsSaving(false)
@@ -111,16 +142,27 @@ export function ManpowerPlanningPage() {
   }
 
   async function handleSubmitForApproval() {
-    if (!planId) {
-      setStatusMessage('Save the plan as a draft before submitting for approval.')
+    if (!isReadyToSave) {
+      setStatusTone('error')
+      setStatusMessage('Please select organization, location, hospital, department and planning period first.')
+      return
+    }
+    if (designationLines.length === 0) {
+      setStatusTone('error')
+      setStatusMessage('Add at least one designation before submitting for approval.')
       return
     }
     setIsSaving(true)
     setStatusMessage(null)
     try {
-      await manpowerPlanApi.submitForApproval(planId, CURRENT_USER)
-      setStatusMessage('Plan submitted for approval.')
+      const saved = await persistPlan()
+      await manpowerPlanApi.submitForApproval(saved.id, CURRENT_USER)
+      setStatusTone('success')
+      setStatusMessage('✅ Plan submitted for approval successfully.')
+      await refreshPreviousPlans()
+      setShowPreviousPlans(true)
     } catch (error) {
+      setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to submit plan.')
     } finally {
       setIsSaving(false)
@@ -129,17 +171,12 @@ export function ManpowerPlanningPage() {
 
   async function handleViewPreviousPlans() {
     if (!selection.hospitalId || !selection.departmentId) {
+      setStatusTone('error')
       setStatusMessage('Select a hospital and department to view previous plans.')
       return
     }
     setShowPreviousPlans(true)
-    setIsLoadingPreviousPlans(true)
-    try {
-      const plans = await manpowerPlanApi.getPreviousPlans(selection.hospitalId, selection.departmentId)
-      setPreviousPlans(plans)
-    } finally {
-      setIsLoadingPreviousPlans(false)
-    }
+    await refreshPreviousPlans()
   }
 
   async function handleSelectPreviousPlan(previousPlanId: string) {
@@ -162,6 +199,7 @@ export function ManpowerPlanningPage() {
       })),
     )
     setShowPreviousPlans(false)
+    setStatusTone('info')
     setStatusMessage(`Loaded plan for ${plan.planningPeriod.label} (${plan.status}).`)
   }
 
@@ -218,7 +256,7 @@ export function ManpowerPlanningPage() {
             </div>
           )}
           {statusMessage && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+            <div className={`rounded-md border px-4 py-2 text-sm ${STATUS_BANNER_CLASSES[statusTone]}`}>
               {statusMessage}
             </div>
           )}

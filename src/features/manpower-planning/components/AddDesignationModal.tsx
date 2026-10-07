@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { DesignationLine, Lookup } from '../../../types/manpowerPlanning'
 import { ModalShell } from '../../../components/ModalShell'
+import { parseNumericInput } from '../../../utils/numberInput'
 
 interface AddDesignationModalProps {
   designationOptions: Lookup[]
@@ -73,7 +74,7 @@ export function AddDesignationModal({
             step={0.5}
             className={INPUT_CLASS}
             value={staffingRatio}
-            onChange={(event) => setStaffingRatio(Number(event.target.value))}
+            onChange={(event) => setStaffingRatio(parseNumericInput(event))}
           />
         </label>
 
@@ -84,7 +85,7 @@ export function AddDesignationModal({
             min={0}
             className={INPUT_CLASS}
             value={monthlySalary}
-            onChange={(event) => setMonthlySalary(Number(event.target.value))}
+            onChange={(event) => setMonthlySalary(parseNumericInput(event))}
           />
         </label>
 
@@ -95,7 +96,7 @@ export function AddDesignationModal({
             min={0}
             className={INPUT_CLASS}
             value={leaveBufferPct}
-            onChange={(event) => setLeaveBufferPct(Number(event.target.value))}
+            onChange={(event) => setLeaveBufferPct(parseNumericInput(event))}
           />
         </label>
 
@@ -106,7 +107,7 @@ export function AddDesignationModal({
             min={0}
             className={INPUT_CLASS}
             value={currentStaff}
-            onChange={(event) => setCurrentStaff(Number(event.target.value))}
+            onChange={(event) => setCurrentStaff(parseNumericInput(event))}
           />
         </label>
       </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Lookup } from '../../../types/manpowerPlanning'
 import { ModalShell } from '../../../components/ModalShell'
+import { parseNumericInput } from '../../../utils/numberInput'
 
 export interface PositionRequestDraft {
   designationId: string
@@ -66,7 +67,7 @@ export function CreatePositionRequestModal({
             min={1}
             className={INPUT_CLASS}
             value={requestedPositions}
-            onChange={(event) => setRequestedPositions(Number(event.target.value))}
+            onChange={(event) => setRequestedPositions(parseNumericInput(event))}
           />
         </label>
 
@@ -86,7 +87,7 @@ export function CreatePositionRequestModal({
             min={0}
             className={INPUT_CLASS}
             value={additionalMonthlyBudget}
-            onChange={(event) => setAdditionalMonthlyBudget(Number(event.target.value))}
+            onChange={(event) => setAdditionalMonthlyBudget(parseNumericInput(event))}
           />
         </label>
 

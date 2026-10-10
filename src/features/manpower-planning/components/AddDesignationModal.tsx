@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { DesignationLine, Lookup } from '../../../types/manpowerPlanning'
 import { ModalShell } from '../../../components/ModalShell'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 import { parseNumericInput } from '../../../utils/numberInput'
 
 interface AddDesignationModalProps {
   designationOptions: Lookup[]
   initialValue?: DesignationLine
+  existingDesignationIds: string[]
   onCancel: () => void
   onSave: (line: DesignationLine) => void
 }
@@ -16,6 +18,7 @@ const INPUT_CLASS =
 export function AddDesignationModal({
   designationOptions,
   initialValue,
+  existingDesignationIds,
   onCancel,
   onSave,
 }: AddDesignationModalProps) {
@@ -24,9 +27,11 @@ export function AddDesignationModal({
   const [monthlySalary, setMonthlySalary] = useState(initialValue?.monthlySalary ?? 0)
   const [leaveBufferPct, setLeaveBufferPct] = useState(initialValue?.leaveBufferPct ?? 0)
   const [currentStaff, setCurrentStaff] = useState(initialValue?.currentStaff ?? 0)
+  const [planned, setPlanned] = useState(initialValue?.planned ?? true)
 
   const selectedDesignation = designationOptions.find((option) => option.id === designationId)
-  const isValid = designationId !== '' && staffingRatio > 0 && monthlySalary >= 0
+  const isDuplicate = designationId !== '' && existingDesignationIds.includes(designationId)
+  const isValid = designationId !== '' && staffingRatio > 0 && monthlySalary >= 0 && !isDuplicate
 
   function handleSubmit() {
     if (!isValid) return
@@ -38,6 +43,7 @@ export function AddDesignationModal({
       monthlySalary,
       leaveBufferPct,
       currentStaff,
+      planned,
     })
   }
 
@@ -48,23 +54,17 @@ export function AddDesignationModal({
       </h3>
 
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-slate-600">Designation</span>
-          <select
-            className={`app-select ${INPUT_CLASS}`}
-            value={designationId}
-            onChange={(event) => setDesignationId(event.target.value)}
-          >
-            <option value="" disabled>
-              Select designation
-            </option>
-            {designationOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SearchableSelect
+          label="Designation"
+          value={designationId}
+          options={designationOptions}
+          placeholder="Select designation"
+          disabledOptionIds={existingDesignationIds}
+          onChange={setDesignationId}
+        />
+        {isDuplicate && (
+          <p className="-mt-2 text-xs text-red-600">This designation has already been added to the plan.</p>
+        )}
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-slate-600">Staffing Ratio (beds per staff)</span>
@@ -109,6 +109,18 @@ export function AddDesignationModal({
             value={currentStaff}
             onChange={(event) => setCurrentStaff(parseNumericInput(event))}
           />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-slate-600">Position Status</span>
+          <select
+            className={`app-select ${INPUT_CLASS}`}
+            value={planned ? 'PLANNED' : 'NOT_PLANNED'}
+            onChange={(event) => setPlanned(event.target.value === 'PLANNED')}
+          >
+            <option value="PLANNED">Planned</option>
+            <option value="NOT_PLANNED">Not Planned</option>
+          </select>
         </label>
       </div>
 

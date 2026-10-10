@@ -20,7 +20,9 @@ export interface DesignationLine {
   monthlySalary: number
   leaveBufferPct: number
   currentStaff: number
+  planned?: boolean
   requiredStaff?: number
+  staffingPercentage?: number
   vacancies?: number
   excess?: number
   monthlyBudget?: number
@@ -31,6 +33,8 @@ export interface DepartmentSummary {
   currentStaff: number
   openPositions: number
   estimatedMonthlyBudget: number
+  additionalPositions?: number
+  additionalMonthlyBudgetRequested?: number
 }
 
 export type PlanStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
@@ -64,11 +68,45 @@ export interface ManpowerPlanListItem {
 
 export type PositionRequestStatus = 'PENDING_APPROVAL' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED'
 
+export interface ManpowerPlanReportRow {
+  planId: string
+  organizationName: string
+  locationName: string
+  hospitalName: string
+  departmentName: string
+  designationName: string
+  numberOfBeds: number
+  departmentOperatingHours: number
+  employeeWorkingHours: number
+  staffingRatio: number
+  monthlySalary: number
+  leaveBufferPct: number
+  planned: boolean
+  requiredStaff: number
+  currentStaff: number
+  vacancies: number
+  excess: number
+  monthlyBudget: number
+  planStatus: string
+}
+
+export interface ManpowerPlanReportFilter {
+  organizationId?: string
+  locationId?: string
+  hospitalId?: string
+  departmentId?: string
+  designationId?: string
+  planStatus?: string
+  vacancyFilter?: 'VACANT_ONLY' | 'FULLY_STAFFED'
+  plannedFilter?: 'PLANNED' | 'NOT_PLANNED'
+}
+
 export interface PositionRequest {
   id: string
   department: Lookup
   designation: Lookup
   requestedPositions: number
+  currentStaff: number
   reason: string
   additionalMonthlyBudget: number
   status: PositionRequestStatus

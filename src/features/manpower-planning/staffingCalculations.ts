@@ -33,8 +33,14 @@ export function calculateMonthlyBudget(requiredStaff: number, monthlySalary: num
   return requiredStaff * monthlySalary
 }
 
+export function calculateStaffingPercentage(requiredStaff: number, currentStaff: number): number {
+  if (requiredStaff === 0) return 0
+  return Math.round((currentStaff / requiredStaff) * 100 * 100) / 100
+}
+
 export interface ComputedDesignationLine extends DesignationLine {
   requiredStaff: number
+  staffingPercentage: number
   vacancies: number
   excess: number
   monthlyBudget: number
@@ -56,20 +62,34 @@ export function withComputedFields(
   return {
     ...line,
     requiredStaff,
+    staffingPercentage: calculateStaffingPercentage(requiredStaff, line.currentStaff),
     vacancies: calculateVacancies(requiredStaff, line.currentStaff),
     excess: calculateExcess(requiredStaff, line.currentStaff),
     monthlyBudget: calculateMonthlyBudget(requiredStaff, line.monthlySalary),
   }
 }
 
-export function summarize(lines: ComputedDesignationLine[]) {
+export function summarize(
+  lines: ComputedDesignationLine[],
+  positionRequests: { requestedPositions: number; additionalMonthlyBudget: number; status: string }[] = [],
+) {
   const totalRequiredStaff = lines.reduce((sum, line) => sum + line.requiredStaff, 0)
   const currentStaff = lines.reduce((sum, line) => sum + line.currentStaff, 0)
   const estimatedMonthlyBudget = lines.reduce((sum, line) => sum + line.monthlyBudget, 0)
+
+  const activeRequests = positionRequests.filter((request) => request.status !== 'REJECTED')
+  const additionalPositions = activeRequests.reduce((sum, request) => sum + request.requestedPositions, 0)
+  const additionalMonthlyBudgetRequested = activeRequests.reduce(
+    (sum, request) => sum + request.additionalMonthlyBudget,
+    0,
+  )
+
   return {
     totalRequiredStaff,
     currentStaff,
     openPositions: totalRequiredStaff - currentStaff,
     estimatedMonthlyBudget,
+    additionalPositions,
+    additionalMonthlyBudgetRequested,
   }
 }

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { Lookup } from '../../../types/manpowerPlanning'
 import { ModalShell } from '../../../components/ModalShell'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 import { parseNumericInput } from '../../../utils/numberInput'
 
 export interface PositionRequestDraft {
   designationId: string
   requestedPositions: number
+  currentStaff: number
   reason: string
   additionalMonthlyBudget: number
   requestedBy: string
@@ -14,6 +16,7 @@ export interface PositionRequestDraft {
 interface CreatePositionRequestModalProps {
   department: Lookup
   designationOptions: Lookup[]
+  disabledDesignationIds: string[]
   onCancel: () => void
   onSave: (draft: PositionRequestDraft) => void
 }
@@ -24,17 +27,24 @@ const INPUT_CLASS =
 export function CreatePositionRequestModal({
   department,
   designationOptions,
+  disabledDesignationIds,
   onCancel,
   onSave,
 }: CreatePositionRequestModalProps) {
   const [designationId, setDesignationId] = useState('')
   const [requestedPositions, setRequestedPositions] = useState(1)
+  const [currentStaff, setCurrentStaff] = useState(0)
   const [reason, setReason] = useState('')
   const [additionalMonthlyBudget, setAdditionalMonthlyBudget] = useState(0)
   const [requestedBy, setRequestedBy] = useState('')
 
+  const isDuplicate = designationId !== '' && disabledDesignationIds.includes(designationId)
   const isValid =
-    designationId !== '' && requestedPositions > 0 && reason.trim() !== '' && requestedBy.trim() !== ''
+    designationId !== '' &&
+    !isDuplicate &&
+    requestedPositions > 0 &&
+    reason.trim() !== '' &&
+    requestedBy.trim() !== ''
 
   return (
     <ModalShell>
@@ -42,22 +52,29 @@ export function CreatePositionRequestModal({
       <p className="mb-4 text-sm text-slate-500">Department: {department.name}</p>
 
       <div className="flex flex-col gap-3">
+        <SearchableSelect
+          label="Designation"
+          value={designationId}
+          options={designationOptions}
+          placeholder="Select designation"
+          disabledOptionIds={disabledDesignationIds}
+          onChange={setDesignationId}
+        />
+        {isDuplicate && (
+          <p className="-mt-2 text-xs text-red-600">
+            This designation already has an open position request for this department.
+          </p>
+        )}
+
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-slate-600">Designation</span>
-          <select
-            className={`app-select ${INPUT_CLASS}`}
-            value={designationId}
-            onChange={(event) => setDesignationId(event.target.value)}
-          >
-            <option value="" disabled>
-              Select designation
-            </option>
-            {designationOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
+          <span className="font-medium text-slate-600">Current Staff</span>
+          <input
+            type="number"
+            min={0}
+            className={INPUT_CLASS}
+            value={currentStaff}
+            onChange={(event) => setCurrentStaff(parseNumericInput(event))}
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
@@ -115,7 +132,7 @@ export function CreatePositionRequestModal({
           className="app-button rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
           disabled={!isValid}
           onClick={() =>
-            onSave({ designationId, requestedPositions, reason, additionalMonthlyBudget, requestedBy })
+            onSave({ designationId, requestedPositions, currentStaff, reason, additionalMonthlyBudget, requestedBy })
           }
         >
           Submit Request

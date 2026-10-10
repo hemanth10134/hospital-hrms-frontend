@@ -4,6 +4,8 @@ import type {
   Lookup,
   ManpowerPlan,
   ManpowerPlanListItem,
+  ManpowerPlanReportFilter,
+  ManpowerPlanReportRow,
   PlanningPeriod,
   PositionRequest,
   PositionRequestStatus,
@@ -34,7 +36,7 @@ export interface CreateManpowerPlanPayload {
   createdBy: string
   designations: Pick<
     DesignationLine,
-    'designationId' | 'staffingRatio' | 'monthlySalary' | 'leaveBufferPct' | 'currentStaff'
+    'designationId' | 'staffingRatio' | 'monthlySalary' | 'leaveBufferPct' | 'currentStaff' | 'planned'
   >[]
 }
 
@@ -57,6 +59,8 @@ export const manpowerPlanApi = {
     httpClient
       .post<ManpowerPlan>(`/manpower-plans/${planId}/submit`, { submittedBy })
       .then((res) => res.data),
+  reopenForModification: (planId: string) =>
+    httpClient.post<ManpowerPlan>(`/manpower-plans/${planId}/reopen`, {}).then((res) => res.data),
 }
 
 export interface CreatePositionRequestPayload {
@@ -64,6 +68,7 @@ export interface CreatePositionRequestPayload {
   departmentId: string
   designationId: string
   requestedPositions: number
+  currentStaff: number
   reason: string
   additionalMonthlyBudget: number
   requestedBy: string
@@ -80,4 +85,15 @@ export const positionRequestApi = {
     httpClient
       .patch<PositionRequest>(`/position-requests/${id}/status`, { status, reviewedBy })
       .then((res) => res.data),
+}
+
+export const reportApi = {
+  generateReport: (filter: ManpowerPlanReportFilter) =>
+    httpClient.get<ManpowerPlanReportRow[]>('/reports/manpower-plans', { params: filter }).then((res) => res.data),
+  exportReportUrl: (filter: ManpowerPlanReportFilter) => {
+    const params = new URLSearchParams(
+      Object.entries(filter).filter(([, value]) => value !== undefined && value !== '') as [string, string][],
+    )
+    return `${httpClient.defaults.baseURL}/reports/manpower-plans/export?${params.toString()}`
+  },
 }

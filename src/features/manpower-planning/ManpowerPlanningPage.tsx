@@ -9,6 +9,7 @@ import { AdditionalPositionRequests } from './components/AdditionalPositionReque
 import { DepartmentSummaryCards } from './components/DepartmentSummaryCards'
 import { PreviousPlansModal } from './components/PreviousPlansModal'
 import { StepGuidePanel } from './components/StepGuidePanel'
+import { ReportsPage } from './ReportsPage'
 import { useReferenceData } from './hooks/useReferenceData'
 import { summarize, withComputedFields } from './staffingCalculations'
 
@@ -43,6 +44,7 @@ export function ManpowerPlanningPage() {
   const [previousPlans, setPreviousPlans] = useState<ManpowerPlanListItem[]>([])
   const [isLoadingPreviousPlans, setIsLoadingPreviousPlans] = useState(false)
   const [showPreviousPlans, setShowPreviousPlans] = useState(false)
+  const [showReports, setShowReports] = useState(false)
 
   const {
     organizations,
@@ -65,10 +67,15 @@ export function ManpowerPlanningPage() {
     positionRequestApi.getByDepartment(selection.departmentId).then(setPositionRequests)
   }, [selection.departmentId])
 
+  const [planStatus, setPlanStatus] = useState<string>('DRAFT')
+  const isLocked = planStatus !== 'DRAFT'
+
   const computedLines = designationLines.map((line) =>
     withComputedFields(line, parameters.numberOfBeds, parameters.departmentOperatingHours, parameters.employeeWorkingHours),
   )
-  const summary = summarize(computedLines)
+  const summary = summarize(computedLines, positionRequests)
+
+  const selectedLocation = locations.find((location) => location.id === selection.locationId) ?? null
 
   const isReadyToSave =
     selection.organizationId &&
@@ -84,6 +91,7 @@ export function ManpowerPlanningPage() {
       monthlySalary: line.monthlySalary,
       leaveBufferPct: line.leaveBufferPct,
       currentStaff: line.currentStaff,
+      planned: line.planned ?? true,
     }))
 
     const saved = planId
@@ -156,14 +164,31 @@ export function ManpowerPlanningPage() {
     setStatusMessage(null)
     try {
       const saved = await persistPlan()
-      await manpowerPlanApi.submitForApproval(saved.id, CURRENT_USER)
+      const submitted = await manpowerPlanApi.submitForApproval(saved.id, CURRENT_USER)
+      setPlanStatus(submitted.status)
       setStatusTone('success')
-      setStatusMessage('✅ Plan submitted for approval successfully.')
+      setStatusMessage('✅ Plan submitted for approval successfully. Fields are now locked — use "Modify" to make changes.')
       await refreshPreviousPlans()
       setShowPreviousPlans(true)
     } catch (error) {
       setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to submit plan.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleModify() {
+    if (!planId) return
+    setIsSaving(true)
+    try {
+      const reopened = await manpowerPlanApi.reopenForModification(planId)
+      setPlanStatus(reopened.status)
+      setStatusTone('info')
+      setStatusMessage('Plan reopened for modification.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to reopen plan for modification.')
     } finally {
       setIsSaving(false)
     }
@@ -196,8 +221,10 @@ export function ManpowerPlanningPage() {
         monthlySalary: line.monthlySalary,
         leaveBufferPct: line.leaveBufferPct,
         currentStaff: line.currentStaff,
+        planned: line.planned,
       })),
     )
+    setPlanStatus(plan.status)
     setShowPreviousPlans(false)
     setStatusTone('info')
     setStatusMessage(`Loaded plan for ${plan.planningPeriod.label} (${plan.status}).`)
@@ -221,6 +248,13 @@ export function ManpowerPlanningPage() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            type="button"
+            className="app-button rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            onClick={() => setShowReports(true)}
+          >
+            📊 Analysis &amp; Reports
+          </button>
           <button
             type="button"
             aria-label="Help"
@@ -269,9 +303,10 @@ export function ManpowerPlanningPage() {
             departments={departments}
             planningPeriods={planningPeriods}
             onChange={setSelection}
+            disabled={isLocked}
           />
 
-          <DepartmentDetails parameters={parameters} onChange={setParameters} />
+          <DepartmentDetails parameters={parameters} onChange={setParameters} disabled={isLocked} />
 
           <DesignationStaffingTable
             lines={designationLines}
@@ -280,6 +315,9 @@ export function ManpowerPlanningPage() {
             departmentOperatingHours={parameters.departmentOperatingHours}
             employeeWorkingHours={parameters.employeeWorkingHours}
             onChange={setDesignationLines}
+            disabled={isLocked}
+            locationName={selectedLocation?.name}
+            planStatus={planStatus}
           />
 
           <AdditionalPositionRequests
@@ -308,22 +346,35 @@ export function ManpowerPlanningPage() {
               🕐 View Previous Plan
             </button>
             <div className="flex gap-3">
-              <button
-                type="button"
-                className="app-button rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
-                disabled={isSaving}
-                onClick={handleSaveAsDraft}
-              >
-                {isSaving ? 'Saving…' : 'Save as Draft'}
-              </button>
-              <button
-                type="button"
-                className="app-button rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
-                disabled={isSaving}
-                onClick={handleSubmitForApproval}
-              >
-                Submit for Approval →
-              </button>
+              {isLocked ? (
+                <button
+                  type="button"
+                  className="app-button rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                  disabled={isSaving || !planId}
+                  onClick={handleModify}
+                >
+                  ✎ Modify
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="app-button rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
+                    disabled={isSaving}
+                    onClick={handleSaveAsDraft}
+                  >
+                    {isSaving ? 'Saving…' : 'Save as Draft'}
+                  </button>
+                  <button
+                    type="button"
+                    className="app-button rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
+                    disabled={isSaving}
+                    onClick={handleSubmitForApproval}
+                  >
+                    Submit for Approval →
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -339,6 +390,8 @@ export function ManpowerPlanningPage() {
           onClose={() => setShowPreviousPlans(false)}
         />
       )}
+
+      {showReports && <ReportsPage onClose={() => setShowReports(false)} />}
     </div>
   )
 }

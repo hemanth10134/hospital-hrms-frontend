@@ -94,6 +94,7 @@ export function DesignationStaffingTable({
       tintColor={STEP_THEMES.designationPlanning.tintColor}
       title="Designation-wise Staffing"
       description="Set staffing ratio, salary and leave buffer for each designation. Required staff, vacancies and budget are calculated automatically."
+      infoBullets={STEP_THEMES.designationPlanning.bullets}
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <select

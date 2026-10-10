@@ -8,7 +8,6 @@ import { DesignationStaffingTable } from './components/DesignationStaffingTable'
 import { AdditionalPositionRequests } from './components/AdditionalPositionRequests'
 import { DepartmentSummaryCards } from './components/DepartmentSummaryCards'
 import { PreviousPlansModal } from './components/PreviousPlansModal'
-import { StepGuidePanel } from './components/StepGuidePanel'
 import { ReportsPage } from './ReportsPage'
 import { useReferenceData } from './hooks/useReferenceData'
 import { summarize, withComputedFields } from './staffingCalculations'
@@ -232,51 +231,55 @@ export function ManpowerPlanningPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3.5">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <HospitalLogo />
-            <div>
-              <p className="text-base font-bold leading-tight text-red-600">Park Hospital</p>
-              <p className="text-[11px] leading-tight text-slate-400">Care for Life</p>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <div className="flex items-center gap-2">
+              <HospitalLogo />
+              <div>
+                <p className="text-base font-bold leading-tight text-red-600">Park Hospital</p>
+                <p className="text-[11px] leading-tight text-slate-400">Care for Life</p>
+              </div>
+            </div>
+            <div className="hidden h-9 w-px bg-slate-200 sm:block" />
+            <div className="hidden sm:block">
+              <h1 className="text-xl font-bold leading-tight text-slate-800">Manpower Planning</h1>
+              <p className="text-sm text-slate-500">Plan, manage and get approval for hospital manpower</p>
             </div>
           </div>
-          <div className="hidden h-9 w-px bg-slate-200 sm:block" />
-          <div>
-            <h1 className="text-xl font-bold leading-tight text-slate-800">Manpower Planning</h1>
-            <p className="text-sm text-slate-500">Plan, manage and get approval for hospital manpower</p>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <button
+              type="button"
+              className="app-button flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+              onClick={() => setShowReports(true)}
+            >
+              <span aria-hidden="true">📊</span>
+              <span className="hidden sm:inline">Analysis &amp; Reports</span>
+              <span className="sm:hidden">Reports</span>
+            </button>
+            <button
+              type="button"
+              aria-label="Help"
+              className="app-button flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-500 transition-colors hover:border-blue-400 hover:text-blue-600"
+            >
+              ?
+            </button>
+            <button type="button" className="app-button hidden items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-slate-50 sm:flex">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-sm font-semibold text-white">
+                SS
+              </span>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-slate-800">{CURRENT_USER}</p>
+                <p className="text-xs text-slate-500">HR Manager</p>
+              </div>
+              <span className="text-xs text-slate-400">▾</span>
+            </button>
           </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            className="app-button rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            onClick={() => setShowReports(true)}
-          >
-            📊 Analysis &amp; Reports
-          </button>
-          <button
-            type="button"
-            aria-label="Help"
-            className="app-button flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-500 transition-colors hover:border-blue-400 hover:text-blue-600"
-          >
-            ?
-          </button>
-          <button type="button" className="app-button flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-slate-50">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white">
-              SS
-            </span>
-            <div className="text-left">
-              <p className="text-sm font-semibold text-slate-800">{CURRENT_USER}</p>
-              <p className="text-xs text-slate-500">HR Manager</p>
-            </div>
-            <span className="text-xs text-slate-400">▾</span>
-          </button>
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-7xl gap-6 px-6 py-6">
-        <div className="flex flex-1 flex-col gap-5">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <div className="flex flex-col gap-5">
           {referenceDataError && (
             <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
               <span>{referenceDataError}</span>
@@ -337,10 +340,10 @@ export function ManpowerPlanningPage() {
 
           <DepartmentSummaryCards summary={summary} />
 
-          <div className="flex justify-between gap-3">
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
-              className="app-button rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm"
+              className="app-button rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm"
               onClick={handleViewPreviousPlans}
             >
               🕐 View Previous Plan
@@ -349,7 +352,7 @@ export function ManpowerPlanningPage() {
               {isLocked ? (
                 <button
                   type="button"
-                  className="app-button rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                  className="app-button flex-1 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50 sm:flex-none"
                   disabled={isSaving || !planId}
                   onClick={handleModify}
                 >
@@ -359,7 +362,7 @@ export function ManpowerPlanningPage() {
                 <>
                   <button
                     type="button"
-                    className="app-button rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
+                    className="app-button flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50 sm:flex-none"
                     disabled={isSaving}
                     onClick={handleSaveAsDraft}
                   >
@@ -367,7 +370,7 @@ export function ManpowerPlanningPage() {
                   </button>
                   <button
                     type="button"
-                    className="app-button rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
+                    className="app-button flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50 sm:flex-none"
                     disabled={isSaving}
                     onClick={handleSubmitForApproval}
                   >
@@ -378,8 +381,6 @@ export function ManpowerPlanningPage() {
             </div>
           </div>
         </div>
-
-        <StepGuidePanel />
       </main>
 
       {showPreviousPlans && (

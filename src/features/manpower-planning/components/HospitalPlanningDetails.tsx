@@ -2,7 +2,6 @@ import type { Lookup, PlanningPeriod } from '../../../types/manpowerPlanning'
 import { SectionCard } from '../../../components/SectionCard'
 import { SelectField } from '../../../components/SelectField'
 import { SearchableSelect } from '../../../components/SearchableSelect'
-import { InfoTooltip } from '../../../components/InfoTooltip'
 import { STEP_THEMES } from '../stepTheme'
 
 export interface HospitalPlanningSelection {
@@ -40,9 +39,9 @@ export function HospitalPlanningDetails({
       color={STEP_THEMES.basicDetails.color}
       tintColor={STEP_THEMES.basicDetails.tintColor}
       title="Hospital &amp; Planning Details"
-      actions={<InfoTooltip text="Choose the organization, location, hospital, department and planning period this plan applies to." />}
+      infoBullets={STEP_THEMES.basicDetails.bullets}
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <SelectField
           label="Organization"
           value={selection.organizationId}

@@ -1,5 +1,4 @@
 import { SectionCard } from '../../../components/SectionCard'
-import { InfoTooltip } from '../../../components/InfoTooltip'
 import { STEP_THEMES } from '../stepTheme'
 import { parseNumericInput } from '../../../utils/numberInput'
 
@@ -24,7 +23,7 @@ export function DepartmentDetails({ parameters, onChange, disabled }: Department
       color={STEP_THEMES.departmentParameters.color}
       tintColor={STEP_THEMES.departmentParameters.tintColor}
       title="Department Details"
-      actions={<InfoTooltip text="Basic operating parameters used to calculate required staff for this department." />}
+      infoBullets={STEP_THEMES.departmentParameters.bullets}
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <label className="flex flex-col gap-1 text-sm">

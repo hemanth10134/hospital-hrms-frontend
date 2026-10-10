@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { DesignationLine, ManpowerPlanListItem, PositionRequest } from '../../types/manpowerPlanning'
-import { manpowerPlanApi, positionRequestApi } from '../../api/manpowerPlanningApi'
+import { manpowerPlanApi, positionRequestApi, referenceDataApi } from '../../api/manpowerPlanningApi'
 import { HospitalLogo } from '../../components/HospitalLogo'
 import { HospitalPlanningDetails, type HospitalPlanningSelection } from './components/HospitalPlanningDetails'
 import { DepartmentDetails, type DepartmentParameters } from './components/DepartmentDetails'
@@ -54,6 +54,7 @@ export function ManpowerPlanningPage() {
     planningPeriods,
     error: referenceDataError,
     retry: retryReferenceData,
+    addDesignation,
   } = useReferenceData(selection)
 
   const selectedDepartment = departments.find((department) => department.id === selection.departmentId) ?? null
@@ -336,6 +337,18 @@ export function ManpowerPlanningPage() {
               })
               setPositionRequests((existing) => [created, ...existing])
             }}
+            onCreateDesignation={
+              selection.organizationId
+                ? async (draft) => {
+                    const created = await referenceDataApi.createDesignation(
+                      selection.organizationId,
+                      draft.code,
+                      draft.name,
+                    )
+                    addDesignation(created)
+                  }
+                : undefined
+            }
           />
 
           <DepartmentSummaryCards summary={summary} />

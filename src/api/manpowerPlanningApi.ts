@@ -21,6 +21,10 @@ export const referenceDataApi = {
     httpClient.get<Lookup[]>(`/hospitals/${hospitalId}/departments`).then((res) => res.data),
   getDesignations: (organizationId: string) =>
     httpClient.get<Lookup[]>(`/organizations/${organizationId}/designations`).then((res) => res.data),
+  createDesignation: (organizationId: string, code: string, name: string) =>
+    httpClient
+      .post<Lookup>(`/organizations/${organizationId}/designations`, { code, name })
+      .then((res) => res.data),
   getPlanningPeriods: () => httpClient.get<PlanningPeriod[]>('/planning-periods').then((res) => res.data),
 }
 

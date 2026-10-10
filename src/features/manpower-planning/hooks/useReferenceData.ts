@@ -89,5 +89,20 @@ export function useReferenceData(selection: HospitalPlanningSelection) {
       .catch((err) => setError(describeError(err)))
   }, [selection.hospitalId])
 
-  return { organizations, locations, hospitals, departments, designations, planningPeriods, isLoading, error, retry }
+  const addDesignation = useCallback((designation: Lookup) => {
+    setDesignations((existing) => [...existing, designation])
+  }, [])
+
+  return {
+    organizations,
+    locations,
+    hospitals,
+    departments,
+    designations,
+    planningPeriods,
+    isLoading,
+    error,
+    retry,
+    addDesignation,
+  }
 }

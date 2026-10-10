@@ -4,7 +4,6 @@ import { SectionCard } from '../../../components/SectionCard'
 import { InfoTooltip } from '../../../components/InfoTooltip'
 import { formatCurrency } from '../../../utils/formatters'
 import { withComputedFields } from '../staffingCalculations'
-import { downloadCsv, exportDesignationLinesToCsv, parseDesignationLinesCsv } from '../csvImportExport'
 import { STEP_THEMES } from '../stepTheme'
 import { AddDesignationModal } from './AddDesignationModal'
 
@@ -69,22 +68,38 @@ export function DesignationStaffingTable({
     onChange(lines.filter((_, i) => i !== index))
   }
 
-  function handleDownload() {
-    downloadCsv('designation-wise-staffing.csv', exportDesignationLinesToCsv(computedLines, locationName, planStatus))
+  // Lazy-loaded: exceljs is a large dependency only needed when the user actually
+  // uploads or downloads a workbook, so it shouldn't bloat the initial page bundle.
+  async function handleDownload() {
+    const { exportDesignationLinesToExcel, downloadBlob } = await import('../excelImportExport')
+    const blob = await exportDesignationLinesToExcel(computedLines, designationOptions, locationName, planStatus)
+    downloadBlob('designation-wise-staffing.xlsx', blob)
   }
 
   const existingDesignationIds = lines
     .filter((_, index) => index !== editingIndex)
     .map((line) => line.designationId)
 
-  function handleUploadFile(file: File) {
-    file.text().then((content) => {
-      const { lines: importedLines, errors } = parseDesignationLinesCsv(content, designationOptions)
-      setImportErrors(errors)
-      if (importedLines.length > 0) {
-        onChange([...lines, ...importedLines])
+  async function handleUploadFile(file: File) {
+    const { parseDesignationLinesExcel } = await import('../excelImportExport')
+    const { lines: importedLines, errors } = await parseDesignationLinesExcel(file, designationOptions)
+
+    const existingIds = new Set(lines.map((line) => line.designationId))
+    const acceptedLines: DesignationLine[] = []
+    const duplicateErrors: string[] = []
+    for (const line of importedLines) {
+      if (existingIds.has(line.designationId)) {
+        duplicateErrors.push(`"${line.designationName}" is already in this plan — skipped.`)
+        continue
       }
-    })
+      existingIds.add(line.designationId)
+      acceptedLines.push(line)
+    }
+
+    setImportErrors([...errors, ...duplicateErrors])
+    if (acceptedLines.length > 0) {
+      onChange([...lines, ...acceptedLines])
+    }
   }
 
   return (
@@ -126,7 +141,7 @@ export function DesignationStaffingTable({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept=".xlsx"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0]

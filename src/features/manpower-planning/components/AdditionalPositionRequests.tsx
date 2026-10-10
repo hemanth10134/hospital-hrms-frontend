@@ -4,6 +4,7 @@ import { SectionCard } from '../../../components/SectionCard'
 import { formatCurrency } from '../../../utils/formatters'
 import { STEP_THEMES } from '../stepTheme'
 import { CreatePositionRequestModal, type PositionRequestDraft } from './CreatePositionRequestModal'
+import { CreateDesignationModal, type NewDesignationDraft } from './CreateDesignationModal'
 import { PositionRequestDetailModal } from './PositionRequestDetailModal'
 
 const STATUS_STYLES: Record<PositionRequest['status'], string> = {
@@ -29,6 +30,7 @@ interface AdditionalPositionRequestsProps {
   designationOptions: Lookup[]
   requests: PositionRequest[]
   onCreate: (draft: PositionRequestDraft) => void
+  onCreateDesignation?: (draft: NewDesignationDraft) => Promise<void>
   disabled?: boolean
 }
 
@@ -37,9 +39,13 @@ export function AdditionalPositionRequests({
   designationOptions,
   requests,
   onCreate,
+  onCreateDesignation,
   disabled,
 }: AdditionalPositionRequestsProps) {
   const [isCreating, setIsCreating] = useState(false)
+  const [isAddingDesignation, setIsAddingDesignation] = useState(false)
+  const [isSavingDesignation, setIsSavingDesignation] = useState(false)
+  const [designationError, setDesignationError] = useState<string | null>(null)
   const [viewingRequest, setViewingRequest] = useState<PositionRequest | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
 
@@ -73,6 +79,19 @@ export function AdditionalPositionRequests({
             <option value="APPROVED">Approved</option>
             <option value="REJECTED">Rejected</option>
           </select>
+          {onCreateDesignation && (
+            <button
+              type="button"
+              className="app-button rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
+              disabled={disabled}
+              onClick={() => {
+                setDesignationError(null)
+                setIsAddingDesignation(true)
+              }}
+            >
+              + Add Designation
+            </button>
+          )}
           <button
             type="button"
             className="app-button rounded-md border border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-50"
@@ -150,6 +169,27 @@ export function AdditionalPositionRequests({
           onSave={(draft) => {
             onCreate(draft)
             setIsCreating(false)
+          }}
+        />
+      )}
+
+      {isAddingDesignation && onCreateDesignation && (
+        <CreateDesignationModal
+          existingCodes={designationOptions.map((option) => option.code.toUpperCase())}
+          isSaving={isSavingDesignation}
+          errorMessage={designationError}
+          onCancel={() => setIsAddingDesignation(false)}
+          onSave={async (draft) => {
+            setIsSavingDesignation(true)
+            setDesignationError(null)
+            try {
+              await onCreateDesignation(draft)
+              setIsAddingDesignation(false)
+            } catch (error) {
+              setDesignationError(error instanceof Error ? error.message : 'Failed to create designation.')
+            } finally {
+              setIsSavingDesignation(false)
+            }
           }}
         />
       )}

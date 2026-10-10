@@ -17,3 +17,13 @@ if (!baseURL.endsWith('/api/v1')) {
 }
 
 export const httpClient = axios.create({ baseURL })
+
+// Surface the backend's ApiError message ("A location named X already exists") instead of
+// axios's generic "Request failed with status code 409" everywhere errors are displayed.
+httpClient.interceptors.response.use(undefined, (error) => {
+  const data = error?.response?.data as { message?: string; details?: string[] } | undefined
+  if (data?.message) {
+    error.message = data.details?.length ? `${data.message}: ${data.details.join(', ')}` : data.message
+  }
+  return Promise.reject(error)
+})

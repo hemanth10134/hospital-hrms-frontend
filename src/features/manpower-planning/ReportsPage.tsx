@@ -3,6 +3,7 @@ import type { Lookup, ManpowerPlanReportFilter, ManpowerPlanReportRow, PlanStatu
 import { referenceDataApi, reportApi } from '../../api/manpowerPlanningApi'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import { formatCurrency } from '../../utils/formatters'
+import { downloadBlob } from '../../utils/download'
 
 interface ReportsPageProps {
   onClose: () => void
@@ -66,7 +67,7 @@ export function ReportsPage({ onClose }: ReportsPageProps) {
   }
 
   async function handleDownload() {
-    const { exportReportToExcel, downloadBlob } = await import('./excelImportExport')
+    const { exportReportToExcel } = await import('./excelImportExport')
     downloadBlob('manpower-planning-report.xlsx', await exportReportToExcel(rows))
   }
 

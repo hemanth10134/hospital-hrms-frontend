@@ -120,3 +120,26 @@ export interface PositionRequest {
   reviewedAt?: string | null
   createdAt: string
 }
+
+export interface PositionRequestDraft {
+  clientKey: string
+  designationId: string
+  requestedPositions: number
+  currentStaff: number
+  reason: string
+  additionalMonthlyBudget: number
+  requestedBy: string
+}
+
+export interface HierarchyHospital extends Lookup {
+  departments: Lookup[]
+}
+
+export interface HierarchyLocation extends Lookup {
+  hospitals: HierarchyHospital[]
+}
+
+export interface HierarchyOrganization extends Lookup {
+  designations: Lookup[]
+  locations: HierarchyLocation[]
+}

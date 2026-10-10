@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { Lookup, PositionRequest, PositionRequestStatus } from '../../../types/manpowerPlanning'
+import type { Lookup, PositionRequest, PositionRequestDraft, PositionRequestStatus } from '../../../types/manpowerPlanning'
 import { SectionCard } from '../../../components/SectionCard'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import { formatCurrency } from '../../../utils/formatters'
@@ -29,19 +29,33 @@ const OPEN_STATUSES = new Set<PositionRequestStatus>(['PENDING_APPROVAL', 'UNDER
 const FORM_INPUT_CLASS =
   'h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-3 focus:ring-blue-100'
 
-export interface PositionRequestDraft {
-  designationId: string
-  requestedPositions: number
-  currentStaff: number
-  reason: string
-  additionalMonthlyBudget: number
-  requestedBy: string
+export function emptyRequestDraft(requestedBy: string): PositionRequestDraft {
+  return {
+    clientKey: crypto.randomUUID(),
+    designationId: '',
+    requestedPositions: 1,
+    currentStaff: 0,
+    reason: '',
+    additionalMonthlyBudget: 0,
+    requestedBy,
+  }
+}
+
+function isDraftComplete(draft: PositionRequestDraft) {
+  return (
+    draft.designationId !== '' &&
+    draft.requestedPositions > 0 &&
+    draft.reason.trim() !== '' &&
+    draft.requestedBy.trim() !== ''
+  )
 }
 
 interface AdditionalPositionRequestsProps {
   department: Lookup | null
   designationOptions: Lookup[]
   requests: PositionRequest[]
+  drafts: PositionRequestDraft[]
+  onDraftsChange: (drafts: PositionRequestDraft[]) => void
   currentStaffByDesignation: Record<string, number>
   defaultRequestedBy: string
   onCreate: (draft: PositionRequestDraft) => Promise<void>
@@ -54,6 +68,8 @@ export function AdditionalPositionRequests({
   department,
   designationOptions,
   requests,
+  drafts,
+  onDraftsChange,
   currentStaffByDesignation,
   defaultRequestedBy,
   onCreate,
@@ -61,17 +77,8 @@ export function AdditionalPositionRequests({
   onCreateDesignation,
   disabled,
 }: AdditionalPositionRequestsProps) {
-  const emptyDraft: PositionRequestDraft = {
-    designationId: '',
-    requestedPositions: 1,
-    currentStaff: 0,
-    reason: '',
-    additionalMonthlyBudget: 0,
-    requestedBy: defaultRequestedBy,
-  }
-  const [draft, setDraft] = useState<PositionRequestDraft>(emptyDraft)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
+  const [submittingKey, setSubmittingKey] = useState<string | null>(null)
+  const [draftErrors, setDraftErrors] = useState<Record<string, string>>({})
   const [isAddingDesignation, setIsAddingDesignation] = useState(false)
   const [isSavingDesignation, setIsSavingDesignation] = useState(false)
   const [designationError, setDesignationError] = useState<string | null>(null)
@@ -84,38 +91,60 @@ export function AdditionalPositionRequests({
     return requests.filter((request) => request.status === statusFilter)
   }, [requests, statusFilter])
 
-  const disabledDesignationIds = requests
+  const openRequestDesignationIds = requests
     .filter((request) => OPEN_STATUSES.has(request.status))
     .map((request) => request.designation.id)
 
-  const canSubmit =
-    !!department &&
-    draft.designationId !== '' &&
-    draft.requestedPositions > 0 &&
-    draft.reason.trim() !== '' &&
-    draft.requestedBy.trim() !== ''
+  function updateDraft(index: number, patch: Partial<PositionRequestDraft>) {
+    onDraftsChange(drafts.map((draft, i) => (i === index ? { ...draft, ...patch } : draft)))
+  }
 
-  function selectDesignation(designationId: string) {
-    setDraft((current) => ({
-      ...current,
+  function selectDesignation(index: number, designationId: string) {
+    const current = drafts[index]
+    updateDraft(index, {
       designationId,
       currentStaff: currentStaffByDesignation[designationId] ?? current.currentStaff,
-    }))
+    })
   }
 
-  async function handleSubmit() {
-    if (!canSubmit) return
-    setIsSubmitting(true)
-    setFormError(null)
+  function keepDrafts(remaining: PositionRequestDraft[]) {
+    onDraftsChange(remaining.length > 0 ? remaining : [emptyRequestDraft(defaultRequestedBy)])
+  }
+
+  async function submit(toSubmit: PositionRequestDraft[]) {
+    const submittedKeys = new Set<string>()
+    const errors: Record<string, string> = {}
+    for (const draft of toSubmit) {
+      try {
+        await onCreate(draft)
+        submittedKeys.add(draft.clientKey)
+      } catch (error) {
+        errors[draft.clientKey] = error instanceof Error ? error.message : 'Failed to create position request.'
+      }
+    }
+    setDraftErrors(errors)
+    if (submittedKeys.size > 0) keepDrafts(drafts.filter((draft) => !submittedKeys.has(draft.clientKey)))
+  }
+
+  async function handleSubmit(draft: PositionRequestDraft) {
+    setSubmittingKey(draft.clientKey)
     try {
-      await onCreate(draft)
-      setDraft(emptyDraft)
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Failed to create position request.')
+      await submit([draft])
     } finally {
-      setIsSubmitting(false)
+      setSubmittingKey(null)
     }
   }
+
+  async function handleSubmitAll() {
+    setSubmittingKey('ALL')
+    try {
+      await submit(drafts.filter(isDraftComplete))
+    } finally {
+      setSubmittingKey(null)
+    }
+  }
+
+  const completeDraftCount = drafts.filter(isDraftComplete).length
 
   return (
     <SectionCard
@@ -123,7 +152,7 @@ export function AdditionalPositionRequests({
       color={STEP_THEMES.positionRequests.color}
       tintColor={STEP_THEMES.positionRequests.tintColor}
       title="Additional Position Requests"
-      description="If you need to open positions beyond the planned requirement, raise a request below. These will go for approval."
+      description="Non-planned positions. Raise a request below (or upload them from Module 1); each goes for approval."
       infoBullets={STEP_THEMES.positionRequests.bullets}
       actions={
         <>
@@ -222,87 +251,125 @@ export function AdditionalPositionRequests({
       </div>
 
       {!disabled && (
-        <div className="mt-4 rounded-lg border border-dashed border-pink-300 bg-white/70 p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-pink-700">New Position Request</p>
+        <div className="mt-4 flex flex-col gap-3">
           {!department ? (
-            <p className="text-sm text-slate-500">Select a hospital and department in step 1 to raise a request.</p>
+            <p className="rounded-lg border border-dashed border-pink-300 bg-white/70 p-3 text-sm text-slate-500">
+              Select a hospital and department in step 1 to raise a request.
+            </p>
           ) : (
-            <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
-                <div className="lg:col-span-2">
-                  <SearchableSelect
-                    label="Designation"
-                    value={draft.designationId}
-                    options={designationOptions}
-                    placeholder="Select designation"
-                    disabledOptionIds={disabledDesignationIds}
-                    onChange={selectDesignation}
-                  />
+            drafts.map((draft, index) => {
+              const takenByOtherDrafts = drafts.filter((_, i) => i !== index).map((other) => other.designationId)
+              return (
+                <div key={draft.clientKey} className="rounded-lg border border-dashed border-pink-300 bg-white/70 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-pink-700">
+                      New Position Request{drafts.length > 1 ? ` ${index + 1}` : ''}
+                    </p>
+                    {drafts.length > 1 && (
+                      <button
+                        type="button"
+                        aria-label={`Remove request ${index + 1}`}
+                        className="text-xs text-slate-500 hover:text-red-600"
+                        onClick={() => keepDrafts(drafts.filter((other) => other.clientKey !== draft.clientKey))}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
+                    <div className="lg:col-span-2">
+                      <SearchableSelect
+                        label="Designation"
+                        value={draft.designationId}
+                        options={designationOptions}
+                        placeholder="Select designation"
+                        disabledOptionIds={[...openRequestDesignationIds, ...takenByOtherDrafts]}
+                        onChange={(designationId) => selectDesignation(index, designationId)}
+                      />
+                    </div>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-slate-600">Current Staff</span>
+                      <input
+                        type="number"
+                        min={0}
+                        className={FORM_INPUT_CLASS}
+                        value={draft.currentStaff}
+                        onChange={(event) => updateDraft(index, { currentStaff: parseNumericInput(event) })}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-slate-600">Requested Positions</span>
+                      <input
+                        type="number"
+                        min={1}
+                        className={FORM_INPUT_CLASS}
+                        value={draft.requestedPositions}
+                        onChange={(event) => updateDraft(index, { requestedPositions: parseNumericInput(event) })}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-slate-600">Additional Monthly Budget (₹)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        className={FORM_INPUT_CLASS}
+                        value={draft.additionalMonthlyBudget}
+                        onChange={(event) => updateDraft(index, { additionalMonthlyBudget: parseNumericInput(event) })}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-slate-600">Requested By</span>
+                      <input
+                        type="text"
+                        className={FORM_INPUT_CLASS}
+                        value={draft.requestedBy}
+                        onChange={(event) => updateDraft(index, { requestedBy: event.target.value })}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm sm:col-span-2 lg:col-span-5">
+                      <span className="font-medium text-slate-600">Reason</span>
+                      <input
+                        type="text"
+                        placeholder="Why are these extra positions needed?"
+                        className={FORM_INPUT_CLASS}
+                        value={draft.reason}
+                        onChange={(event) => updateDraft(index, { reason: event.target.value })}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="app-button h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                      disabled={!isDraftComplete(draft) || submittingKey !== null}
+                      onClick={() => handleSubmit(draft)}
+                    >
+                      {submittingKey === draft.clientKey ? 'Submitting…' : 'Submit Request'}
+                    </button>
+                  </div>
+                  {draftErrors[draft.clientKey] && <p className="mt-2 text-sm text-red-600">{draftErrors[draft.clientKey]}</p>}
                 </div>
-                <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-medium text-slate-600">Current Staff</span>
-                  <input
-                    type="number"
-                    min={0}
-                    className={FORM_INPUT_CLASS}
-                    value={draft.currentStaff}
-                    onChange={(event) => setDraft((current) => ({ ...current, currentStaff: parseNumericInput(event) }))}
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-medium text-slate-600">Requested Positions</span>
-                  <input
-                    type="number"
-                    min={1}
-                    className={FORM_INPUT_CLASS}
-                    value={draft.requestedPositions}
-                    onChange={(event) =>
-                      setDraft((current) => ({ ...current, requestedPositions: parseNumericInput(event) }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-medium text-slate-600">Additional Monthly Budget (₹)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    className={FORM_INPUT_CLASS}
-                    value={draft.additionalMonthlyBudget}
-                    onChange={(event) =>
-                      setDraft((current) => ({ ...current, additionalMonthlyBudget: parseNumericInput(event) }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-medium text-slate-600">Requested By</span>
-                  <input
-                    type="text"
-                    className={FORM_INPUT_CLASS}
-                    value={draft.requestedBy}
-                    onChange={(event) => setDraft((current) => ({ ...current, requestedBy: event.target.value }))}
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5 text-sm sm:col-span-2 lg:col-span-5">
-                  <span className="font-medium text-slate-600">Reason</span>
-                  <input
-                    type="text"
-                    placeholder="Why are these extra positions needed?"
-                    className={FORM_INPUT_CLASS}
-                    value={draft.reason}
-                    onChange={(event) => setDraft((current) => ({ ...current, reason: event.target.value }))}
-                  />
-                </label>
+              )
+            })
+          )}
+          {department && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                className="text-sm font-medium text-pink-700 hover:underline"
+                onClick={() => onDraftsChange([...drafts, emptyRequestDraft(defaultRequestedBy)])}
+              >
+                + Add another request
+              </button>
+              {drafts.length > 1 && (
                 <button
                   type="button"
-                  className="app-button h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-                  disabled={!canSubmit || isSubmitting}
-                  onClick={handleSubmit}
+                  className="app-button rounded-lg bg-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-pink-700 disabled:opacity-50"
+                  disabled={completeDraftCount === 0 || submittingKey !== null}
+                  onClick={handleSubmitAll}
                 >
-                  {isSubmitting ? 'Submitting…' : 'Submit Request'}
+                  {submittingKey === 'ALL' ? 'Submitting…' : `Submit all complete (${completeDraftCount})`}
                 </button>
-              </div>
-              {formError && <p className="mt-2 text-sm text-red-600">{formError}</p>}
-            </>
+              )}
+            </div>
           )}
         </div>
       )}

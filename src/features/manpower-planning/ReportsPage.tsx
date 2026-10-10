@@ -65,8 +65,9 @@ export function ReportsPage({ onClose }: ReportsPageProps) {
     }
   }
 
-  function handleDownload() {
-    window.open(reportApi.exportReportUrl(filter), '_blank')
+  async function handleDownload() {
+    const { exportReportToExcel, downloadBlob } = await import('./excelImportExport')
+    downloadBlob('manpower-planning-report.xlsx', await exportReportToExcel(rows))
   }
 
   return (
@@ -189,14 +190,14 @@ export function ReportsPage({ onClose }: ReportsPageProps) {
               disabled={rows.length === 0}
               onClick={handleDownload}
             >
-              ⬇ Download (location &amp; status included)
+              ⬇ Download Excel
             </button>
           </div>
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         </div>
 
         <div className="app-card overflow-x-auto rounded-xl bg-white p-5 shadow-sm">
-          <table className="w-full min-w-[1200px] border-collapse text-sm">
+          <table className="w-full min-w-[1800px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-500">
                 <th className="py-2 pr-3">Organization</th>
@@ -204,14 +205,21 @@ export function ReportsPage({ onClose }: ReportsPageProps) {
                 <th className="py-2 pr-3">Hospital</th>
                 <th className="py-2 pr-3">Department</th>
                 <th className="py-2 pr-3">Designation</th>
+                <th className="py-2 pr-3">Staffing Status</th>
+                <th className="py-2 pr-3">Planned</th>
                 <th className="py-2 pr-3">No of Beds</th>
                 <th className="py-2 pr-3">Operating Hours</th>
                 <th className="py-2 pr-3">Working Hours</th>
+                <th className="py-2 pr-3">Position</th>
                 <th className="py-2 pr-3">Staffing Ratio</th>
                 <th className="py-2 pr-3">Monthly Salary</th>
                 <th className="py-2 pr-3">Leave Buffer %</th>
-                <th className="py-2 pr-3">Position</th>
+                <th className="py-2 pr-3">Current Staff</th>
                 <th className="py-2 pr-3">Vacancies</th>
+                <th className="py-2 pr-3">Requested Positions</th>
+                <th className="py-2 pr-3">Reason</th>
+                <th className="py-2 pr-3">Additional Monthly Budget</th>
+                <th className="py-2 pr-3">Requested By</th>
                 <th className="py-2 pr-3">Status</th>
               </tr>
             </thead>
@@ -223,20 +231,37 @@ export function ReportsPage({ onClose }: ReportsPageProps) {
                   <td className="py-2 pr-3">{row.hospitalName}</td>
                   <td className="py-2 pr-3">{row.departmentName}</td>
                   <td className="py-2 pr-3 font-medium text-slate-800">{row.designationName}</td>
+                  <td className="py-2 pr-3">
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                        row.vacancies > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
+                      }`}
+                    >
+                      {row.staffingStatus}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3">{row.planned ? 'Planned' : 'Not Planned'}</td>
                   <td className="py-2 pr-3">{row.numberOfBeds}</td>
                   <td className="py-2 pr-3">{row.departmentOperatingHours}</td>
                   <td className="py-2 pr-3">{row.employeeWorkingHours}</td>
+                  <td className="py-2 pr-3 font-semibold">{row.requiredStaff}</td>
                   <td className="py-2 pr-3">{row.staffingRatio}</td>
                   <td className="py-2 pr-3">{formatCurrency(row.monthlySalary)}</td>
                   <td className="py-2 pr-3">{row.leaveBufferPct}%</td>
-                  <td className="py-2 pr-3">{row.planned ? 'Planned' : 'Not Planned'}</td>
+                  <td className="py-2 pr-3">{row.currentStaff}</td>
                   <td className="py-2 pr-3">{row.vacancies}</td>
+                  <td className="py-2 pr-3">{row.requestedPositions}</td>
+                  <td className="max-w-[200px] truncate py-2 pr-3" title={row.requestReasons}>
+                    {row.requestReasons || '-'}
+                  </td>
+                  <td className="py-2 pr-3">{formatCurrency(row.additionalMonthlyBudget)}</td>
+                  <td className="py-2 pr-3">{row.requestedBy || '-'}</td>
                   <td className="py-2 pr-3">{row.planStatus}</td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="py-6 text-center text-slate-400">
+                  <td colSpan={21} className="py-6 text-center text-slate-400">
                     {isLoading ? 'Loading…' : 'Choose filters and click "Generate Report".'}
                   </td>
                 </tr>

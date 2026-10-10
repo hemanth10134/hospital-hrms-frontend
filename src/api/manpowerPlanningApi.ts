@@ -94,10 +94,4 @@ export const positionRequestApi = {
 export const reportApi = {
   generateReport: (filter: ManpowerPlanReportFilter) =>
     httpClient.get<ManpowerPlanReportRow[]>('/reports/manpower-plans', { params: filter }).then((res) => res.data),
-  exportReportUrl: (filter: ManpowerPlanReportFilter) => {
-    const params = new URLSearchParams(
-      Object.entries(filter).filter(([, value]) => value !== undefined && value !== '') as [string, string][],
-    )
-    return `${httpClient.defaults.baseURL}/reports/manpower-plans/export?${params.toString()}`
-  },
 }

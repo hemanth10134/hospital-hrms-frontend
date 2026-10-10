@@ -69,6 +69,7 @@ export function ManpowerPlanningPage() {
 
   const [planStatus, setPlanStatus] = useState<string>('DRAFT')
   const isLocked = planStatus !== 'DRAFT'
+  const [isDepartmentSaved, setIsDepartmentSaved] = useState(false)
 
   const computedLines = designationLines.map((line) =>
     withComputedFields(line, parameters.numberOfBeds, parameters.departmentOperatingHours, parameters.employeeWorkingHours),
@@ -139,11 +140,33 @@ export function ManpowerPlanningPage() {
     setStatusMessage(null)
     try {
       await persistPlan()
+      setIsDepartmentSaved(true)
       setStatusTone('success')
       setStatusMessage('Draft saved successfully.')
     } catch (error) {
       setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to save draft.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleSaveDepartmentDetails() {
+    if (!isReadyToSave) {
+      setIsDepartmentSaved(true)
+      setStatusTone('info')
+      setStatusMessage('Department details saved. Complete step 1 and use "Save as Draft" to store the plan.')
+      return
+    }
+    setIsSaving(true)
+    try {
+      await persistPlan()
+      setIsDepartmentSaved(true)
+      setStatusTone('success')
+      setStatusMessage('Department details saved.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to save department details.')
     } finally {
       setIsSaving(false)
     }
@@ -225,6 +248,7 @@ export function ManpowerPlanningPage() {
       })),
     )
     setPlanStatus(plan.status)
+    setIsDepartmentSaved(true)
     setShowPreviousPlans(false)
     setStatusTone('info')
     setStatusMessage(`Loaded plan for ${plan.planningPeriod.label} (${plan.status}).`)
@@ -310,7 +334,15 @@ export function ManpowerPlanningPage() {
             disabled={isLocked}
           />
 
-          <DepartmentDetails parameters={parameters} onChange={setParameters} disabled={isLocked} />
+          <DepartmentDetails
+            parameters={parameters}
+            onChange={setParameters}
+            isSaved={isDepartmentSaved}
+            isSaving={isSaving}
+            onSave={handleSaveDepartmentDetails}
+            onModify={() => setIsDepartmentSaved(false)}
+            disabled={isLocked}
+          />
 
           <DesignationStaffingTable
             lines={designationLines}
@@ -328,6 +360,10 @@ export function ManpowerPlanningPage() {
             department={selectedDepartment}
             designationOptions={designations}
             requests={positionRequests}
+            currentStaffByDesignation={Object.fromEntries(
+              designationLines.map((line) => [line.designationId, line.currentStaff]),
+            )}
+            defaultRequestedBy={CURRENT_USER}
             onCreate={async (draft) => {
               if (!selectedDepartment) return
               const created = await positionRequestApi.create({
@@ -336,6 +372,15 @@ export function ManpowerPlanningPage() {
                 ...draft,
               })
               setPositionRequests((existing) => [created, ...existing])
+            }}
+            onStatusChange={async (id, status) => {
+              try {
+                const updated = await positionRequestApi.updateStatus(id, status, CURRENT_USER)
+                setPositionRequests((existing) => existing.map((request) => (request.id === id ? updated : request)))
+              } catch (error) {
+                setStatusTone('error')
+                setStatusMessage(error instanceof Error ? error.message : 'Failed to update request status.')
+              }
             }}
             onCreateDesignation={
               selection.organizationId

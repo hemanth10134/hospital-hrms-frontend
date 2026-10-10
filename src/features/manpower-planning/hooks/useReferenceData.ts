@@ -92,6 +92,9 @@ export function useReferenceData(selection: HospitalPlanningSelection) {
   const addDesignation = useCallback((designation: Lookup) => {
     setDesignations((existing) => [...existing, designation])
   }, [])
+  const addLocation = useCallback((location: Lookup) => setLocations((existing) => [...existing, location]), [])
+  const addHospital = useCallback((hospital: Lookup) => setHospitals((existing) => [...existing, hospital]), [])
+  const addDepartment = useCallback((department: Lookup) => setDepartments((existing) => [...existing, department]), [])
 
   return {
     organizations,
@@ -104,5 +107,8 @@ export function useReferenceData(selection: HospitalPlanningSelection) {
     error,
     retry,
     addDesignation,
+    addLocation,
+    addHospital,
+    addDepartment,
   }
 }

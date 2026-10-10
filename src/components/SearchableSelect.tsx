@@ -9,6 +9,8 @@ interface SearchableSelectProps {
   disabled?: boolean
   disabledOptionIds?: string[]
   onChange: (value: string) => void
+  addLabel?: string
+  onAddNew?: (name: string) => Promise<void>
 }
 
 /**
@@ -26,9 +28,14 @@ export function SearchableSelect({
   disabled,
   disabledOptionIds,
   onChange,
+  addLabel,
+  onAddNew,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [newName, setNewName] = useState<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
+  const [isAdding, setIsAdding] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const selected = options.find((option) => option.id === value)
@@ -42,18 +49,42 @@ export function SearchableSelect({
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-        setQuery('')
+        close()
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  function selectOption(optionId: string) {
-    onChange(optionId)
+  function close() {
     setIsOpen(false)
     setQuery('')
+    setNewName(null)
+    setAddError(null)
+  }
+
+  function selectOption(optionId: string) {
+    onChange(optionId)
+    close()
+  }
+
+  async function submitNewName() {
+    const name = (newName ?? '').trim().replace(/\s+/g, ' ')
+    if (!name || !onAddNew) return
+    if (options.some((option) => option.name.toLowerCase() === name.toLowerCase())) {
+      setAddError(`"${name}" already exists.`)
+      return
+    }
+    setIsAdding(true)
+    setAddError(null)
+    try {
+      await onAddNew(name)
+      close()
+    } catch (error) {
+      setAddError(error instanceof Error ? error.message : 'Could not add it.')
+    } finally {
+      setIsAdding(false)
+    }
   }
 
   return (
@@ -114,6 +145,56 @@ export function SearchableSelect({
                 )
               })}
             </ul>
+            {onAddNew && (
+              <div className="border-t border-slate-200 p-2">
+                {newName === null ? (
+                  <button
+                    type="button"
+                    className="w-full rounded-md px-2 py-1.5 text-left text-sm font-medium text-blue-600 hover:bg-blue-50"
+                    onClick={() => setNewName(query)}
+                  >
+                    + {addLabel ?? 'Add new'}
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      aria-label={addLabel ?? 'New name'}
+                      placeholder="Enter name"
+                      className="h-9 rounded-md border border-slate-300 px-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={newName}
+                      onChange={(event) => setNewName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') submitNewName()
+                        if (event.key === 'Escape') setNewName(null)
+                      }}
+                    />
+                    {addError && <p className="text-xs text-red-600">{addError}</p>}
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        className="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
+                        onClick={() => {
+                          setNewName(null)
+                          setAddError(null)
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        disabled={isAdding || newName.trim() === ''}
+                        onClick={submitNewName}
+                      >
+                        {isAdding ? 'Adding…' : 'Add'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

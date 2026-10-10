@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import type { DesignationLine, ManpowerPlanListItem, PositionRequest } from '../../types/manpowerPlanning'
+import type { DesignationLine, ManpowerPlanListItem, PositionRequest, PositionRequestDraft } from '../../types/manpowerPlanning'
 import { manpowerPlanApi, positionRequestApi, referenceDataApi } from '../../api/manpowerPlanningApi'
 import { HospitalLogo } from '../../components/HospitalLogo'
 import { HospitalPlanningDetails, type HospitalPlanningSelection } from './components/HospitalPlanningDetails'
 import { DepartmentDetails, type DepartmentParameters } from './components/DepartmentDetails'
 import { DesignationStaffingTable } from './components/DesignationStaffingTable'
-import { AdditionalPositionRequests } from './components/AdditionalPositionRequests'
+import { AdditionalPositionRequests, emptyRequestDraft } from './components/AdditionalPositionRequests'
+import { PlanUploadPanel } from './components/PlanUploadPanel'
 import { DepartmentSummaryCards } from './components/DepartmentSummaryCards'
 import { PreviousPlansModal } from './components/PreviousPlansModal'
 import { ReportsPage } from './ReportsPage'
 import { useReferenceData } from './hooks/useReferenceData'
+import { usePlanExcel } from './hooks/usePlanExcel'
+import { POSITION_NON_PLANNED, POSITION_PLANNED, type PlanRowValues, type UploadedPlanGroup } from './planUpload'
 import { summarize, withComputedFields } from './staffingCalculations'
 
 const CURRENT_USER = 'Sunita Sharma'
@@ -35,6 +38,8 @@ export function ManpowerPlanningPage() {
   })
   const [designationLines, setDesignationLines] = useState<DesignationLine[]>([])
   const [positionRequests, setPositionRequests] = useState<PositionRequest[]>([])
+  const [requestDrafts, setRequestDrafts] = useState<PositionRequestDraft[]>(() => [emptyRequestDraft(CURRENT_USER)])
+  const [preparedBy, setPreparedBy] = useState(CURRENT_USER)
   const [planId, setPlanId] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [statusTone, setStatusTone] = useState<'info' | 'success' | 'error'>('info')
@@ -55,6 +60,9 @@ export function ManpowerPlanningPage() {
     error: referenceDataError,
     retry: retryReferenceData,
     addDesignation,
+    addLocation,
+    addHospital,
+    addDepartment,
   } = useReferenceData(selection)
 
   const selectedDepartment = departments.find((department) => department.id === selection.departmentId) ?? null
@@ -85,6 +93,104 @@ export function ManpowerPlanningPage() {
     selection.departmentId &&
     selection.planningPeriodId
 
+  function handleSelectionChange(next: HospitalPlanningSelection) {
+    const isDifferentPlan =
+      next.hospitalId !== selection.hospitalId ||
+      next.departmentId !== selection.departmentId ||
+      next.planningPeriodId !== selection.planningPeriodId
+    if (isDifferentPlan) {
+      setPlanId(null)
+      setPlanStatus('DRAFT')
+      setIsDepartmentSaved(false)
+    }
+    setSelection(next)
+  }
+
+  function applyUploadedGroup(group: UploadedPlanGroup) {
+    handleSelectionChange({
+      organizationId: group.organizationId,
+      locationId: group.locationId,
+      hospitalId: group.hospitalId,
+      departmentId: group.departmentId,
+      planningPeriodId: selection.planningPeriodId,
+    })
+    setParameters((current) => ({
+      numberOfBeds: group.numberOfBeds ?? current.numberOfBeds,
+      departmentOperatingHours: group.departmentOperatingHours ?? current.departmentOperatingHours,
+      employeeWorkingHours: group.employeeWorkingHours ?? current.employeeWorkingHours,
+    }))
+    setDesignationLines(group.lines)
+    setRequestDrafts(group.requests.length > 0 ? group.requests : [emptyRequestDraft(CURRENT_USER)])
+    setPreparedBy(group.employeeId || CURRENT_USER)
+    setIsDepartmentSaved(false)
+    setStatusTone('success')
+    setStatusMessage(`Autofilled ${group.label} from Excel. Review steps 2–4, then Save.`)
+  }
+
+  function buildPrefillRows(): PlanRowValues[] {
+    const nameOf = (items: { id: string; name: string }[], id: string) => items.find((item) => item.id === id)?.name
+    const base: PlanRowValues = {
+      employeeId: preparedBy === CURRENT_USER ? undefined : preparedBy,
+      organization: nameOf(organizations, selection.organizationId),
+      location: nameOf(locations, selection.locationId),
+      hospital: nameOf(hospitals, selection.hospitalId),
+      department: nameOf(departments, selection.departmentId),
+      numberOfBeds: selection.departmentId ? parameters.numberOfBeds : undefined,
+      operatingHours: selection.departmentId ? parameters.departmentOperatingHours : undefined,
+      workingHours: selection.departmentId ? parameters.employeeWorkingHours : undefined,
+    }
+    const rows: PlanRowValues[] = [
+      ...designationLines.map((line) => ({
+        designation: line.designationName,
+        position: line.planned === false ? POSITION_NON_PLANNED : POSITION_PLANNED,
+        staffingRatio: line.staffingRatio,
+        monthlySalary: line.monthlySalary,
+        leaveBuffer: line.leaveBufferPct,
+        currentStaff: line.currentStaff,
+      })),
+      ...requestDrafts
+        .filter((draft) => draft.designationId)
+        .map((draft) => ({
+          designation: designations.find((designation) => designation.id === draft.designationId)?.name,
+          position: POSITION_NON_PLANNED,
+          currentStaff: draft.currentStaff,
+          requestedPositions: draft.requestedPositions,
+          reason: draft.reason,
+          additionalBudget: draft.additionalMonthlyBudget,
+          requestedBy: draft.requestedBy,
+        })),
+    ]
+    if (!base.department) return rows.length > 0 ? rows : []
+    return rows.length > 0 ? [{ ...base, ...rows[0] }, ...rows.slice(1)] : [base]
+  }
+
+  const planExcel = usePlanExcel({
+    buildPrefillRows,
+    onApply: applyUploadedGroup,
+    onError: (message) => {
+      setStatusTone('error')
+      setStatusMessage(message)
+    },
+  })
+
+  async function handleAddLocation(name: string) {
+    const created = await referenceDataApi.createLocation(selection.organizationId, name)
+    addLocation(created)
+    handleSelectionChange({ ...selection, locationId: created.id, hospitalId: '', departmentId: '' })
+  }
+
+  async function handleAddHospital(name: string) {
+    const created = await referenceDataApi.createHospital(selection.locationId, name)
+    addHospital(created)
+    handleSelectionChange({ ...selection, hospitalId: created.id, departmentId: '' })
+  }
+
+  async function handleAddDepartment(name: string) {
+    const created = await referenceDataApi.createDepartment(selection.hospitalId, name)
+    addDepartment(created)
+    handleSelectionChange({ ...selection, departmentId: created.id })
+  }
+
   async function persistPlan() {
     const designations = designationLines.map((line) => ({
       designationId: line.designationId,
@@ -111,7 +217,7 @@ export function ManpowerPlanningPage() {
           numberOfBeds: parameters.numberOfBeds,
           departmentOperatingHours: parameters.departmentOperatingHours,
           employeeWorkingHours: parameters.employeeWorkingHours,
-          createdBy: CURRENT_USER,
+          createdBy: preparedBy,
           designations,
         })
 
@@ -330,7 +436,23 @@ export function ManpowerPlanningPage() {
             hospitals={hospitals}
             departments={departments}
             planningPeriods={planningPeriods}
-            onChange={setSelection}
+            onChange={handleSelectionChange}
+            onAddLocation={handleAddLocation}
+            onAddHospital={handleAddHospital}
+            onAddDepartment={handleAddDepartment}
+            onDownloadFormat={planExcel.downloadFormat}
+            onUploadFile={planExcel.upload}
+            isExcelBusy={planExcel.isBusy}
+            uploadPanel={
+              planExcel.result && (
+                <PlanUploadPanel
+                  result={planExcel.result}
+                  appliedKey={planExcel.appliedKey === selection.departmentId ? planExcel.appliedKey : null}
+                  onApply={planExcel.apply}
+                  onDismiss={planExcel.dismiss}
+                />
+              )
+            }
             disabled={isLocked}
           />
 
@@ -360,11 +482,13 @@ export function ManpowerPlanningPage() {
             department={selectedDepartment}
             designationOptions={designations}
             requests={positionRequests}
+            drafts={requestDrafts}
+            onDraftsChange={setRequestDrafts}
             currentStaffByDesignation={Object.fromEntries(
               designationLines.map((line) => [line.designationId, line.currentStaff]),
             )}
             defaultRequestedBy={CURRENT_USER}
-            onCreate={async (draft) => {
+            onCreate={async ({ clientKey: _clientKey, ...draft }) => {
               if (!selectedDepartment) return
               const created = await positionRequestApi.create({
                 planId: planId ?? undefined,

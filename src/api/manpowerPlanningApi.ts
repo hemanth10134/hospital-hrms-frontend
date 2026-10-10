@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient'
 import type {
   DesignationLine,
+  HierarchyOrganization,
   Lookup,
   ManpowerPlan,
   ManpowerPlanListItem,
@@ -21,6 +22,13 @@ export const referenceDataApi = {
     httpClient.get<Lookup[]>(`/hospitals/${hospitalId}/departments`).then((res) => res.data),
   getDesignations: (organizationId: string) =>
     httpClient.get<Lookup[]>(`/organizations/${organizationId}/designations`).then((res) => res.data),
+  createLocation: (organizationId: string, name: string) =>
+    httpClient.post<Lookup>(`/organizations/${organizationId}/locations`, { name }).then((res) => res.data),
+  createHospital: (locationId: string, name: string) =>
+    httpClient.post<Lookup>(`/locations/${locationId}/hospitals`, { name }).then((res) => res.data),
+  createDepartment: (hospitalId: string, name: string) =>
+    httpClient.post<Lookup>(`/hospitals/${hospitalId}/departments`, { name }).then((res) => res.data),
+  getHierarchy: () => httpClient.get<HierarchyOrganization[]>('/reference-data/hierarchy').then((res) => res.data),
   createDesignation: (organizationId: string, code: string, name: string) =>
     httpClient
       .post<Lookup>(`/organizations/${organizationId}/designations`, { code, name })

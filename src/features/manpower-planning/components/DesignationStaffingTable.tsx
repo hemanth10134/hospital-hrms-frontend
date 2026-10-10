@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { DesignationLine, Lookup } from '../../../types/manpowerPlanning'
 import { SectionCard } from '../../../components/SectionCard'
 import { InfoTooltip } from '../../../components/InfoTooltip'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import { formatCurrency } from '../../../utils/formatters'
 import { parseNumericInput } from '../../../utils/numberInput'
+import { downloadBlob } from '../../../utils/download'
 import { withComputedFields } from '../staffingCalculations'
 import { STEP_THEMES } from '../stepTheme'
 
@@ -43,9 +44,7 @@ export function DesignationStaffingTable({
 }: DesignationStaffingTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('ALL')
-  const [importErrors, setImportErrors] = useState<string[]>([])
   const [draft, setDraft] = useState(EMPTY_DRAFT)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const computedLines = lines.map((line) =>
     withComputedFields(line, numberOfBeds, departmentOperatingHours, employeeWorkingHours),
@@ -83,36 +82,9 @@ export function DesignationStaffingTable({
   // Lazy-loaded: exceljs is a large dependency only needed when the user actually
   // uploads or downloads a workbook, so it shouldn't bloat the initial page bundle.
   async function handleDownload() {
-    const { exportDesignationLinesToExcel, downloadBlob } = await import('../excelImportExport')
+    const { exportDesignationLinesToExcel } = await import('../excelImportExport')
     const blob = await exportDesignationLinesToExcel(computedLines, designationOptions, locationName, planStatus)
     downloadBlob('designation-wise-staffing.xlsx', blob)
-  }
-
-  async function handleDownloadTemplate() {
-    const { exportDesignationTemplate, downloadBlob } = await import('../excelImportExport')
-    downloadBlob('designation-upload-format.xlsx', await exportDesignationTemplate(designationOptions))
-  }
-
-  async function handleUploadFile(file: File) {
-    const { parseDesignationLinesExcel } = await import('../excelImportExport')
-    const { lines: importedLines, errors } = await parseDesignationLinesExcel(file, designationOptions)
-
-    const existingIds = new Set(existingDesignationIds)
-    const acceptedLines: DesignationLine[] = []
-    const duplicateErrors: string[] = []
-    for (const line of importedLines) {
-      if (existingIds.has(line.designationId)) {
-        duplicateErrors.push(`"${line.designationName}" is already in this plan — skipped.`)
-        continue
-      }
-      existingIds.add(line.designationId)
-      acceptedLines.push(line)
-    }
-
-    setImportErrors([...errors, ...duplicateErrors])
-    if (acceptedLines.length > 0) {
-      onChange([...lines, ...acceptedLines])
-    }
   }
 
   return (
@@ -143,45 +115,9 @@ export function DesignationStaffingTable({
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
           />
-          <button
-            type="button"
-            className="app-button rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
-            disabled={designationOptions.length === 0}
-            onClick={handleDownloadTemplate}
-          >
-            ⬇ Download Excel Format
-          </button>
-          <button
-            type="button"
-            className="app-button rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
-            disabled={disabled || designationOptions.length === 0}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            ⬆ Upload Excel
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx"
-            className="hidden"
-            data-testid="designation-upload-input"
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (file) handleUploadFile(file)
-              event.target.value = ''
-            }}
-          />
         </>
       }
     >
-      {importErrors.length > 0 && (
-        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          {importErrors.map((error) => (
-            <p key={error}>{error}</p>
-          ))}
-        </div>
-      )}
-
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1100px] border-collapse text-sm">
           <thead>
@@ -244,6 +180,7 @@ export function DesignationStaffingTable({
                     type="number"
                     min={0}
                     aria-label={`Leave buffer for ${line.designationName}`}
+                    placeholder="e.g. 10%"
                     className={CELL_INPUT_CLASS}
                     value={line.leaveBufferPct}
                     disabled={disabled}
@@ -306,7 +243,7 @@ export function DesignationStaffingTable({
               <tr>
                 <td colSpan={13} className="py-6 text-center text-slate-400">
                   {lines.length === 0
-                    ? 'No designations added yet. Use the row below to add one.'
+                    ? 'No designations added yet. Use the row below, or upload the Excel format in step 1.'
                     : 'No designations match your search/filter.'}
                 </td>
               </tr>
@@ -355,8 +292,9 @@ export function DesignationStaffingTable({
               <input
                 type="number"
                 min={0}
+                placeholder="e.g. 10%"
                 className={FORM_INPUT_CLASS}
-                value={draft.leaveBufferPct}
+                value={draft.leaveBufferPct || ''}
                 onChange={(event) => setDraft((current) => ({ ...current, leaveBufferPct: parseNumericInput(event) }))}
               />
             </label>

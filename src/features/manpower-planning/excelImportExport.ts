@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs'
-import type { DesignationLine, Lookup, ManpowerPlanReportRow } from '../../types/manpowerPlanning'
+import type { Lookup, ManpowerPlanReportRow } from '../../types/manpowerPlanning'
 import type { ComputedDesignationLine } from './staffingCalculations'
 
 const SHEET_NAME = 'Designation-wise Staffing'
@@ -59,39 +59,6 @@ export async function exportDesignationLinesToExcel(
   return toBlob(workbook)
 }
 
-const TEMPLATE_COLUMN_KEYS = [
-  'designationCode',
-  'designationName',
-  'staffingRatio',
-  'monthlySalary',
-  'leaveBufferPct',
-  'currentStaff',
-  'planned',
-] as const
-
-/**
- * Blank upload format: the input columns the importer reads, plus a reference
- * sheet listing every valid designation code so users don't have to guess them.
- */
-export async function exportDesignationTemplate(designationOptions: Lookup[]): Promise<Blob> {
-  const workbook = new ExcelJS.Workbook()
-  const sheet = workbook.addWorksheet(SHEET_NAME)
-  sheet.columns = COLUMNS.filter((column) => (TEMPLATE_COLUMN_KEYS as readonly string[]).includes(column.key)).map(
-    ({ header, key, width }) => ({ header, key, width }),
-  )
-  sheet.getRow(1).font = { bold: true }
-
-  const codes = workbook.addWorksheet('Designation Codes')
-  codes.columns = [
-    { header: 'Designation Code', key: 'code', width: 24 },
-    { header: 'Designation', key: 'name', width: 32 },
-  ]
-  codes.getRow(1).font = { bold: true }
-  designationOptions.forEach((option) => codes.addRow({ code: option.code, name: option.name }))
-
-  return toBlob(workbook)
-}
-
 export async function exportReportToExcel(rows: ManpowerPlanReportRow[]): Promise<Blob> {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet('Manpower Planning Report')
@@ -122,82 +89,4 @@ export async function exportReportToExcel(rows: ManpowerPlanReportRow[]): Promis
   rows.forEach((row) => sheet.addRow({ ...row, planned: row.planned ? 'Planned' : 'Not Planned' }))
 
   return toBlob(workbook)
-}
-
-export function downloadBlob(filename: string, blob: Blob) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
-export interface ExcelImportResult {
-  lines: DesignationLine[]
-  errors: string[]
-}
-
-/**
- * Parses the `.xlsx` produced by the "Download" flow above (or any workbook with the
- * same column headers) back into designation lines. Rows referencing an unknown
- * designation code are reported as errors rather than silently skipped.
- */
-export async function parseDesignationLinesExcel(
-  file: File,
-  designationOptions: Lookup[],
-): Promise<ExcelImportResult> {
-  const buffer = await file.arrayBuffer()
-  const workbook = new ExcelJS.Workbook()
-  await workbook.xlsx.load(buffer)
-  const sheet = workbook.worksheets[0]
-
-  const lines: DesignationLine[] = []
-  const errors: string[] = []
-  if (!sheet) {
-    return { lines, errors: ['The uploaded file has no worksheets.'] }
-  }
-
-  const byCode = new Map(designationOptions.map((option) => [option.code.toUpperCase(), option]))
-  const headerRow = sheet.getRow(1).values as unknown[]
-  const columnIndex = (key: (typeof COLUMNS)[number]['key']) => {
-    const header = COLUMNS.find((column) => column.key === key)?.header
-    return headerRow.findIndex((cell) => String(cell ?? '').trim() === header)
-  }
-
-  const codeCol = columnIndex('designationCode')
-  const ratioCol = columnIndex('staffingRatio')
-  const salaryCol = columnIndex('monthlySalary')
-  const bufferCol = columnIndex('leaveBufferPct')
-  const currentStaffCol = columnIndex('currentStaff')
-  const plannedCol = columnIndex('planned')
-
-  if (codeCol < 0) {
-    return { lines, errors: ['Could not find a "Designation Code" column in the uploaded file.'] }
-  }
-
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return
-
-    const designationCode = String(row.getCell(codeCol).value ?? '').trim()
-    if (!designationCode) return
-
-    const designation = byCode.get(designationCode.toUpperCase())
-    if (!designation) {
-      errors.push(`Row ${rowNumber}: unknown designation code "${designationCode}"`)
-      return
-    }
-
-    lines.push({
-      designationId: designation.id,
-      designationName: designation.name,
-      staffingRatio: Number(row.getCell(ratioCol).value ?? 0),
-      monthlySalary: Number(row.getCell(salaryCol).value ?? 0),
-      leaveBufferPct: Number(row.getCell(bufferCol).value ?? 0),
-      currentStaff: Number(row.getCell(currentStaffCol).value ?? 0),
-      planned: plannedCol < 0 || String(row.getCell(plannedCol).value ?? '').trim().toLowerCase() !== 'not planned',
-    })
-  })
-
-  return { lines, errors }
 }

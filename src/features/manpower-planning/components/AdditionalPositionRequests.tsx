@@ -59,6 +59,7 @@ export function AdditionalPositionRequests({
       tintColor={STEP_THEMES.positionRequests.tintColor}
       title="Additional Position Requests"
       description='If you need to open positions beyond the planned requirement, create a new position request. These will go for approval.'
+      infoBullets={STEP_THEMES.positionRequests.bullets}
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <select

@@ -43,6 +43,7 @@ export function DepartmentSummaryCards({ summary }: DepartmentSummaryCardsProps)
       color={STEP_THEMES.summary.color}
       tintColor={STEP_THEMES.summary.tintColor}
       title="Department Summary"
+      infoBullets={STEP_THEMES.summary.bullets}
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => (

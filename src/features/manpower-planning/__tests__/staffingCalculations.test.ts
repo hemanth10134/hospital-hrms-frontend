@@ -3,6 +3,7 @@ import {
   calculateExcess,
   calculateMonthlyBudget,
   calculateRequiredStaff,
+  calculateStaffingPercentage,
   calculateVacancies,
   summarize,
   withComputedFields,
@@ -50,5 +51,30 @@ describe('staffingCalculations', () => {
     expect(summary.totalRequiredStaff).toBe(lines[0].requiredStaff + lines[1].requiredStaff)
     expect(summary.currentStaff).toBe(8)
     expect(summary.openPositions).toBe(summary.totalRequiredStaff - summary.currentStaff)
+  })
+
+  it('sums additional positions and budget from non-rejected position requests', () => {
+    const lines = [
+      withComputedFields(
+        { designationId: 'a', staffingRatio: 10, monthlySalary: 150000, leaveBufferPct: 10, currentStaff: 2 },
+        20,
+        24,
+        8,
+      ),
+    ]
+    const positionRequests = [
+      { requestedPositions: 2, additionalMonthlyBudget: 50000, status: 'PENDING_APPROVAL' },
+      { requestedPositions: 3, additionalMonthlyBudget: 90000, status: 'REJECTED' },
+    ]
+
+    const summary = summarize(lines, positionRequests)
+
+    expect(summary.additionalPositions).toBe(2)
+    expect(summary.additionalMonthlyBudgetRequested).toBe(50000)
+  })
+
+  it('computes staffing percentage as current/required staff', () => {
+    expect(calculateStaffingPercentage(7, 2)).toBeCloseTo(28.57, 2)
+    expect(calculateStaffingPercentage(0, 0)).toBe(0)
   })
 })

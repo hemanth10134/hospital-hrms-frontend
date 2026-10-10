@@ -1,6 +1,8 @@
 import type { Lookup, PlanningPeriod } from '../../../types/manpowerPlanning'
 import { SectionCard } from '../../../components/SectionCard'
 import { SelectField } from '../../../components/SelectField'
+import { SearchableSelect } from '../../../components/SearchableSelect'
+import { InfoTooltip } from '../../../components/InfoTooltip'
 import { STEP_THEMES } from '../stepTheme'
 
 export interface HospitalPlanningSelection {
@@ -38,6 +40,7 @@ export function HospitalPlanningDetails({
       color={STEP_THEMES.basicDetails.color}
       tintColor={STEP_THEMES.basicDetails.tintColor}
       title="Hospital &amp; Planning Details"
+      actions={<InfoTooltip text="Choose the organization, location, hospital, department and planning period this plan applies to." />}
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <SelectField
@@ -72,24 +75,13 @@ export function HospitalPlanningDetails({
           disabled={disabled || !selection.hospitalId}
           onChange={(departmentId) => onChange({ ...selection, departmentId })}
         />
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-slate-600">Planning Period</span>
-          <select
-            className="app-select rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 disabled:bg-slate-100"
-            value={selection.planningPeriodId}
-            disabled={disabled}
-            onChange={(event) => onChange({ ...selection, planningPeriodId: event.target.value })}
-          >
-            <option value="" disabled>
-              Select planning period
-            </option>
-            {planningPeriods.map((period) => (
-              <option key={period.id} value={period.id}>
-                {period.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SearchableSelect
+          label="Planning Period"
+          value={selection.planningPeriodId}
+          options={planningPeriods.map((period) => ({ id: period.id, code: period.code, name: period.label }))}
+          disabled={disabled}
+          onChange={(planningPeriodId) => onChange({ ...selection, planningPeriodId })}
+        />
       </div>
     </SectionCard>
   )

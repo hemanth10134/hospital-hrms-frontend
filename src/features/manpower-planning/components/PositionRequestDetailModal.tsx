@@ -23,6 +23,7 @@ export function PositionRequestDetailModal({ request, onClose }: PositionRequest
       <div className="flex flex-col">
         <Row label="Department" value={request.department.name} />
         <Row label="Designation" value={request.designation.name} />
+        <Row label="Current Staff" value={String(request.currentStaff)} />
         <Row label="Requested Positions" value={String(request.requestedPositions)} />
         <Row label="Reason" value={request.reason} />
         <Row label="Additional Monthly Budget" value={formatCurrency(request.additionalMonthlyBudget)} />

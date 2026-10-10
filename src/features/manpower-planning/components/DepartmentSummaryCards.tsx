@@ -23,6 +23,18 @@ export function DepartmentSummaryCards({ summary }: DepartmentSummaryCardsProps)
       icon: '₹',
       className: 'bg-emerald-50 text-emerald-700',
     },
+    {
+      label: 'Additional Positions',
+      value: summary.additionalPositions ?? 0,
+      icon: '➕',
+      className: 'bg-amber-50 text-amber-700',
+    },
+    {
+      label: 'Additional Monthly Budget',
+      value: formatCurrency(summary.additionalMonthlyBudgetRequested ?? 0),
+      icon: '₹',
+      className: 'bg-pink-50 text-pink-700',
+    },
   ]
 
   return (

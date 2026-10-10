@@ -8,7 +8,7 @@ import { downloadCsv, exportDesignationLinesToCsv, parseDesignationLinesCsv } fr
 import { STEP_THEMES } from '../stepTheme'
 import { AddDesignationModal } from './AddDesignationModal'
 
-type VisibilityFilter = 'ALL' | 'VACANT_ONLY' | 'FULLY_STAFFED'
+type VisibilityFilter = 'ALL' | 'VACANT_ONLY' | 'FULLY_STAFFED' | 'PLANNED' | 'NOT_PLANNED'
 
 interface DesignationStaffingTableProps {
   lines: DesignationLine[]
@@ -18,6 +18,8 @@ interface DesignationStaffingTableProps {
   employeeWorkingHours: number
   onChange: (lines: DesignationLine[]) => void
   disabled?: boolean
+  locationName?: string
+  planStatus?: string
 }
 
 export function DesignationStaffingTable({
@@ -28,6 +30,8 @@ export function DesignationStaffingTable({
   employeeWorkingHours,
   onChange,
   disabled,
+  locationName,
+  planStatus,
 }: DesignationStaffingTableProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -46,6 +50,8 @@ export function DesignationStaffingTable({
     .filter(({ line }) => {
       if (visibilityFilter === 'VACANT_ONLY') return line.vacancies > 0
       if (visibilityFilter === 'FULLY_STAFFED') return line.vacancies === 0
+      if (visibilityFilter === 'PLANNED') return line.planned !== false
+      if (visibilityFilter === 'NOT_PLANNED') return line.planned === false
       return true
     })
 
@@ -64,8 +70,12 @@ export function DesignationStaffingTable({
   }
 
   function handleDownload() {
-    downloadCsv('designation-wise-staffing.csv', exportDesignationLinesToCsv(computedLines))
+    downloadCsv('designation-wise-staffing.csv', exportDesignationLinesToCsv(computedLines, locationName, planStatus))
   }
+
+  const existingDesignationIds = lines
+    .filter((_, index) => index !== editingIndex)
+    .map((line) => line.designationId)
 
   function handleUploadFile(file: File) {
     file.text().then((content) => {
@@ -94,6 +104,8 @@ export function DesignationStaffingTable({
             <option value="ALL">Show All Designations</option>
             <option value="VACANT_ONLY">Vacant Only</option>
             <option value="FULLY_STAFFED">Fully Staffed</option>
+            <option value="PLANNED">Planned</option>
+            <option value="NOT_PLANNED">Not Planned</option>
           </select>
           <input
             type="search"
@@ -159,9 +171,13 @@ export function DesignationStaffingTable({
               <th className="py-2 pr-3">
                 Current Staff <InfoTooltip text="Staff currently in position for this designation" />
               </th>
+              <th className="py-2 pr-3">
+                Staffing % <InfoTooltip text="Current staff as a percentage of required staff" />
+              </th>
               <th className="py-2 pr-3">Vacancies</th>
               <th className="py-2 pr-3">Excess</th>
               <th className="py-2 pr-3">Monthly Budget (₹)</th>
+              <th className="py-2 pr-3">Status</th>
               <th className="py-2 pr-3">Action</th>
             </tr>
           </thead>
@@ -178,6 +194,7 @@ export function DesignationStaffingTable({
                 <td className="py-2 pr-3">{line.leaveBufferPct}%</td>
                 <td className="py-2 pr-3 font-semibold">{line.requiredStaff}</td>
                 <td className="py-2 pr-3">{line.currentStaff}</td>
+                <td className="py-2 pr-3">{line.staffingPercentage}%</td>
                 <td className="py-2 pr-3">
                   {line.vacancies > 0 ? (
                     <span className="rounded bg-red-100 px-2 py-0.5 font-semibold text-red-700 transition-colors">
@@ -197,6 +214,15 @@ export function DesignationStaffingTable({
                   )}
                 </td>
                 <td className="py-2 pr-3">{formatCurrency(line.monthlyBudget)}</td>
+                <td className="py-2 pr-3">
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${
+                      line.planned === false ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
+                    {line.planned === false ? 'Not Planned' : 'Planned'}
+                  </span>
+                </td>
                 <td className="py-2 pr-3">
                   <div className="flex gap-2">
                     <button
@@ -221,7 +247,7 @@ export function DesignationStaffingTable({
             ))}
             {visibleLines.length === 0 && (
               <tr>
-                <td colSpan={11} className="py-6 text-center text-slate-400">
+                <td colSpan={13} className="py-6 text-center text-slate-400">
                   {lines.length === 0
                     ? 'No designations added yet. Click "Add Designation" to get started.'
                     : 'No designations match your search/filter.'}
@@ -255,6 +281,7 @@ export function DesignationStaffingTable({
         <AddDesignationModal
           designationOptions={designationOptions}
           initialValue={editingIndex !== null ? lines[editingIndex] : undefined}
+          existingDesignationIds={existingDesignationIds}
           onCancel={() => {
             setIsAdding(false)
             setEditingIndex(null)

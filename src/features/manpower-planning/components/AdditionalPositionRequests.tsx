@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Lookup, PositionRequest } from '../../../types/manpowerPlanning'
 import { SectionCard } from '../../../components/SectionCard'
 import { formatCurrency } from '../../../utils/formatters'
@@ -20,6 +20,10 @@ const STATUS_LABELS: Record<PositionRequest['status'], string> = {
   REJECTED: 'Rejected',
 }
 
+type StatusFilter = 'ALL' | PositionRequest['status']
+
+const OPEN_STATUSES = new Set<PositionRequest['status']>(['PENDING_APPROVAL', 'UNDER_REVIEW'])
+
 interface AdditionalPositionRequestsProps {
   department: Lookup | null
   designationOptions: Lookup[]
@@ -37,6 +41,16 @@ export function AdditionalPositionRequests({
 }: AdditionalPositionRequestsProps) {
   const [isCreating, setIsCreating] = useState(false)
   const [viewingRequest, setViewingRequest] = useState<PositionRequest | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+
+  const visibleRequests = useMemo(
+    () => (statusFilter === 'ALL' ? requests : requests.filter((request) => request.status === statusFilter)),
+    [requests, statusFilter],
+  )
+
+  const disabledDesignationIds = requests
+    .filter((request) => OPEN_STATUSES.has(request.status))
+    .map((request) => request.designation.id)
 
   return (
     <SectionCard
@@ -46,14 +60,27 @@ export function AdditionalPositionRequests({
       title="Additional Position Requests"
       description='If you need to open positions beyond the planned requirement, create a new position request. These will go for approval.'
       actions={
-        <button
-          type="button"
-          className="app-button rounded-md border border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-50"
-          disabled={disabled || !department}
-          onClick={() => setIsCreating(true)}
-        >
-          + Create Position Request
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            className="app-select rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-600"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="PENDING_APPROVAL">Pending Approval</option>
+            <option value="UNDER_REVIEW">Under Review</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+          <button
+            type="button"
+            className="app-button rounded-md border border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-50"
+            disabled={disabled || !department}
+            onClick={() => setIsCreating(true)}
+          >
+            + Create Position Request
+          </button>
+        </div>
       }
     >
       <div className="overflow-x-auto">
@@ -62,6 +89,7 @@ export function AdditionalPositionRequests({
             <tr className="border-b border-slate-200 text-left text-slate-500">
               <th className="py-2 pr-3">#</th>
               <th className="py-2 pr-3">Designation</th>
+              <th className="py-2 pr-3">Current Staff</th>
               <th className="py-2 pr-3">Requested Positions</th>
               <th className="py-2 pr-3">Reason</th>
               <th className="py-2 pr-3">Additional Monthly Budget (₹)</th>
@@ -71,13 +99,14 @@ export function AdditionalPositionRequests({
             </tr>
           </thead>
           <tbody>
-            {requests.map((request, index) => (
+            {visibleRequests.map((request, index) => (
               <tr
                 key={request.id}
                 className="animate-row-enter border-b border-slate-100 transition-colors hover:bg-slate-50"
               >
                 <td className="py-2 pr-3 text-slate-500">{index + 1}</td>
                 <td className="py-2 pr-3 font-medium text-slate-800">{request.designation.name}</td>
+                <td className="py-2 pr-3">{request.currentStaff}</td>
                 <td className="py-2 pr-3">{request.requestedPositions}</td>
                 <td className="py-2 pr-3">{request.reason}</td>
                 <td className="py-2 pr-3">{formatCurrency(request.additionalMonthlyBudget)}</td>
@@ -100,10 +129,10 @@ export function AdditionalPositionRequests({
                 </td>
               </tr>
             ))}
-            {requests.length === 0 && (
+            {visibleRequests.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-6 text-center text-slate-400">
-                  No additional position requests yet.
+                <td colSpan={9} className="py-6 text-center text-slate-400">
+                  {requests.length === 0 ? 'No additional position requests yet.' : 'No requests match this status filter.'}
                 </td>
               </tr>
             )}
@@ -115,6 +144,7 @@ export function AdditionalPositionRequests({
         <CreatePositionRequestModal
           department={department}
           designationOptions={designationOptions}
+          disabledDesignationIds={disabledDesignationIds}
           onCancel={() => setIsCreating(false)}
           onSave={(draft) => {
             onCreate(draft)

@@ -3,7 +3,11 @@ import type { ComputedDesignationLine } from './staffingCalculations'
 
 const CSV_HEADER = 'designationCode,staffingRatio,monthlySalary,leaveBufferPct,currentStaff'
 
-export function exportDesignationLinesToCsv(lines: ComputedDesignationLine[]): string {
+export function exportDesignationLinesToCsv(
+  lines: ComputedDesignationLine[],
+  locationName?: string,
+  planStatus?: string,
+): string {
   const rows = lines.map((line) =>
     [
       line.designationName,
@@ -15,9 +19,13 @@ export function exportDesignationLinesToCsv(lines: ComputedDesignationLine[]): s
       line.vacancies,
       line.excess,
       line.monthlyBudget,
+      line.planned === false ? 'Not Planned' : 'Planned',
+      locationName ?? '',
+      planStatus ?? '',
     ].join(','),
   )
-  const header = 'designation,staffingRatio,monthlySalary,leaveBufferPct,currentStaff,requiredStaff,vacancies,excess,monthlyBudget'
+  const header =
+    'designation,staffingRatio,monthlySalary,leaveBufferPct,currentStaff,requiredStaff,vacancies,excess,monthlyBudget,planned,location,status'
   return [header, ...rows].join('\n')
 }
 

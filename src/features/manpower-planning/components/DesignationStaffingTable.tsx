@@ -2,10 +2,11 @@ import { useRef, useState } from 'react'
 import type { DesignationLine, Lookup } from '../../../types/manpowerPlanning'
 import { SectionCard } from '../../../components/SectionCard'
 import { InfoTooltip } from '../../../components/InfoTooltip'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 import { formatCurrency } from '../../../utils/formatters'
+import { parseNumericInput } from '../../../utils/numberInput'
 import { withComputedFields } from '../staffingCalculations'
 import { STEP_THEMES } from '../stepTheme'
-import { AddDesignationModal } from './AddDesignationModal'
 
 type VisibilityFilter = 'ALL' | 'VACANT_ONLY' | 'FULLY_STAFFED' | 'PLANNED' | 'NOT_PLANNED'
 
@@ -21,6 +22,14 @@ interface DesignationStaffingTableProps {
   planStatus?: string
 }
 
+const CELL_INPUT_CLASS =
+  'w-full min-w-[72px] rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:border-transparent disabled:bg-transparent disabled:px-0'
+
+const FORM_INPUT_CLASS =
+  'h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-3 focus:ring-blue-100'
+
+const EMPTY_DRAFT = { designationId: '', staffingRatio: 1, monthlySalary: 0, leaveBufferPct: 0, currentStaff: 0, planned: true }
+
 export function DesignationStaffingTable({
   lines,
   designationOptions,
@@ -32,11 +41,10 @@ export function DesignationStaffingTable({
   locationName,
   planStatus,
 }: DesignationStaffingTableProps) {
-  const [isAdding, setIsAdding] = useState(false)
-  const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('ALL')
   const [importErrors, setImportErrors] = useState<string[]>([])
+  const [draft, setDraft] = useState(EMPTY_DRAFT)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const computedLines = lines.map((line) =>
@@ -54,18 +62,22 @@ export function DesignationStaffingTable({
       return true
     })
 
-  function handleSave(line: DesignationLine, index: number | null) {
-    if (index === null) {
-      onChange([...lines, line])
-    } else {
-      onChange(lines.map((existing, i) => (i === index ? line : existing)))
-    }
-    setIsAdding(false)
-    setEditingIndex(null)
+  const existingDesignationIds = lines.map((line) => line.designationId)
+  const canAddDraft = draft.designationId !== '' && draft.staffingRatio > 0 && draft.monthlySalary >= 0
+
+  function updateLine(index: number, patch: Partial<DesignationLine>) {
+    onChange(lines.map((line, i) => (i === index ? { ...line, ...patch } : line)))
   }
 
   function handleDelete(index: number) {
     onChange(lines.filter((_, i) => i !== index))
+  }
+
+  function handleAddDraft() {
+    if (!canAddDraft || existingDesignationIds.includes(draft.designationId)) return
+    const designation = designationOptions.find((option) => option.id === draft.designationId)
+    onChange([...lines, { ...draft, designationName: designation?.name }])
+    setDraft(EMPTY_DRAFT)
   }
 
   // Lazy-loaded: exceljs is a large dependency only needed when the user actually
@@ -76,15 +88,16 @@ export function DesignationStaffingTable({
     downloadBlob('designation-wise-staffing.xlsx', blob)
   }
 
-  const existingDesignationIds = lines
-    .filter((_, index) => index !== editingIndex)
-    .map((line) => line.designationId)
+  async function handleDownloadTemplate() {
+    const { exportDesignationTemplate, downloadBlob } = await import('../excelImportExport')
+    downloadBlob('designation-upload-format.xlsx', await exportDesignationTemplate(designationOptions))
+  }
 
   async function handleUploadFile(file: File) {
     const { parseDesignationLinesExcel } = await import('../excelImportExport')
     const { lines: importedLines, errors } = await parseDesignationLinesExcel(file, designationOptions)
 
-    const existingIds = new Set(lines.map((line) => line.designationId))
+    const existingIds = new Set(existingDesignationIds)
     const acceptedLines: DesignationLine[] = []
     const duplicateErrors: string[] = []
     for (const line of importedLines) {
@@ -111,7 +124,7 @@ export function DesignationStaffingTable({
       description="Set staffing ratio, salary and leave buffer for each designation. Required staff, vacancies and budget are calculated automatically."
       infoBullets={STEP_THEMES.designationPlanning.bullets}
       actions={
-        <div className="flex flex-wrap items-center gap-2">
+        <>
           <select
             className="app-select rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-600"
             value={visibilityFilter}
@@ -133,6 +146,14 @@ export function DesignationStaffingTable({
           <button
             type="button"
             className="app-button rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
+            disabled={designationOptions.length === 0}
+            onClick={handleDownloadTemplate}
+          >
+            ⬇ Download Excel Format
+          </button>
+          <button
+            type="button"
+            className="app-button rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
             disabled={disabled || designationOptions.length === 0}
             onClick={() => fileInputRef.current?.click()}
           >
@@ -143,21 +164,14 @@ export function DesignationStaffingTable({
             type="file"
             accept=".xlsx"
             className="hidden"
+            data-testid="designation-upload-input"
             onChange={(event) => {
               const file = event.target.files?.[0]
               if (file) handleUploadFile(file)
               event.target.value = ''
             }}
           />
-          <button
-            type="button"
-            className="app-button rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
-            disabled={disabled}
-            onClick={() => setIsAdding(true)}
-          >
-            + Add Designation
-          </button>
-        </div>
+        </>
       }
     >
       {importErrors.length > 0 && (
@@ -169,7 +183,7 @@ export function DesignationStaffingTable({
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] border-collapse text-sm">
+        <table className="w-full min-w-[1100px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-slate-500">
               <th className="py-2 pr-3">#</th>
@@ -193,71 +207,98 @@ export function DesignationStaffingTable({
               <th className="py-2 pr-3">Vacancies</th>
               <th className="py-2 pr-3">Excess</th>
               <th className="py-2 pr-3">Monthly Budget (₹)</th>
-              <th className="py-2 pr-3">Status</th>
+              <th className="py-2 pr-3">Position</th>
               <th className="py-2 pr-3">Action</th>
             </tr>
           </thead>
           <tbody>
             {visibleLines.map(({ line, originalIndex }, displayIndex) => (
-              <tr
-                key={line.id ?? line.designationId}
-                className="animate-row-enter border-b border-slate-100 transition-colors hover:bg-slate-50"
-              >
+              <tr key={line.id ?? line.designationId} className="border-b border-slate-100 transition-colors hover:bg-slate-50">
                 <td className="py-2 pr-3 text-slate-500">{displayIndex + 1}</td>
                 <td className="py-2 pr-3 font-medium text-slate-800">{line.designationName}</td>
-                <td className="py-2 pr-3">{line.staffingRatio}</td>
-                <td className="py-2 pr-3">{formatCurrency(line.monthlySalary)}</td>
-                <td className="py-2 pr-3">{line.leaveBufferPct}%</td>
+                <td className="py-2 pr-3">
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.5}
+                    aria-label={`Staffing ratio for ${line.designationName}`}
+                    className={CELL_INPUT_CLASS}
+                    value={line.staffingRatio}
+                    disabled={disabled}
+                    onChange={(event) => updateLine(originalIndex, { staffingRatio: parseNumericInput(event) })}
+                  />
+                </td>
+                <td className="py-2 pr-3">
+                  <input
+                    type="number"
+                    min={0}
+                    aria-label={`Monthly salary for ${line.designationName}`}
+                    className={CELL_INPUT_CLASS}
+                    value={line.monthlySalary}
+                    disabled={disabled}
+                    onChange={(event) => updateLine(originalIndex, { monthlySalary: parseNumericInput(event) })}
+                  />
+                </td>
+                <td className="py-2 pr-3">
+                  <input
+                    type="number"
+                    min={0}
+                    aria-label={`Leave buffer for ${line.designationName}`}
+                    className={CELL_INPUT_CLASS}
+                    value={line.leaveBufferPct}
+                    disabled={disabled}
+                    onChange={(event) => updateLine(originalIndex, { leaveBufferPct: parseNumericInput(event) })}
+                  />
+                </td>
                 <td className="py-2 pr-3 font-semibold">{line.requiredStaff}</td>
-                <td className="py-2 pr-3">{line.currentStaff}</td>
+                <td className="py-2 pr-3">
+                  <input
+                    type="number"
+                    min={0}
+                    aria-label={`Current staff for ${line.designationName}`}
+                    className={CELL_INPUT_CLASS}
+                    value={line.currentStaff}
+                    disabled={disabled}
+                    onChange={(event) => updateLine(originalIndex, { currentStaff: parseNumericInput(event) })}
+                  />
+                </td>
                 <td className="py-2 pr-3">{line.staffingPercentage}%</td>
                 <td className="py-2 pr-3">
                   {line.vacancies > 0 ? (
-                    <span className="rounded bg-red-100 px-2 py-0.5 font-semibold text-red-700 transition-colors">
-                      {line.vacancies}
-                    </span>
+                    <span className="rounded bg-red-100 px-2 py-0.5 font-semibold text-red-700">{line.vacancies}</span>
                   ) : (
                     '-'
                   )}
                 </td>
                 <td className="py-2 pr-3">
                   {line.excess > 0 ? (
-                    <span className="rounded bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700 transition-colors">
-                      {line.excess}
-                    </span>
+                    <span className="rounded bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">{line.excess}</span>
                   ) : (
                     '-'
                   )}
                 </td>
                 <td className="py-2 pr-3">{formatCurrency(line.monthlyBudget)}</td>
                 <td className="py-2 pr-3">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${
-                      line.planned === false ? 'bg-slate-100 text-slate-600' : 'bg-blue-100 text-blue-700'
-                    }`}
+                  <select
+                    aria-label={`Position status for ${line.designationName}`}
+                    className="app-select rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm disabled:border-transparent disabled:bg-transparent"
+                    value={line.planned === false ? 'NOT_PLANNED' : 'PLANNED'}
+                    disabled={disabled}
+                    onChange={(event) => updateLine(originalIndex, { planned: event.target.value === 'PLANNED' })}
                   >
-                    {line.planned === false ? 'Not Planned' : 'Planned'}
-                  </span>
+                    <option value="PLANNED">Planned</option>
+                    <option value="NOT_PLANNED">Not Planned</option>
+                  </select>
                 </td>
                 <td className="py-2 pr-3">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="text-blue-600 transition-colors hover:text-blue-800 hover:underline"
-                      disabled={disabled}
-                      onClick={() => setEditingIndex(originalIndex)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-red-600 transition-colors hover:text-red-800 hover:underline"
-                      disabled={disabled}
-                      onClick={() => handleDelete(originalIndex)}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="text-red-600 transition-colors hover:text-red-800 hover:underline disabled:text-slate-300 disabled:no-underline"
+                    disabled={disabled}
+                    onClick={() => handleDelete(originalIndex)}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
@@ -265,7 +306,7 @@ export function DesignationStaffingTable({
               <tr>
                 <td colSpan={13} className="py-6 text-center text-slate-400">
                   {lines.length === 0
-                    ? 'No designations added yet. Click "Add Designation" to get started.'
+                    ? 'No designations added yet. Use the row below to add one.'
                     : 'No designations match your search/filter.'}
                 </td>
               </tr>
@@ -274,15 +315,86 @@ export function DesignationStaffingTable({
         </table>
       </div>
 
-      <div className="mt-3 flex items-center justify-between">
-        <button
-          type="button"
-          className="text-sm font-medium text-blue-600 transition-colors hover:text-blue-800 hover:underline disabled:text-slate-400 disabled:no-underline"
-          onClick={() => setIsAdding(true)}
-          disabled={disabled}
-        >
-          + Add Designation
-        </button>
+      {!disabled && (
+        <div className="mt-4 rounded-lg border border-dashed border-orange-300 bg-white/70 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-orange-700">Add Designation</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-8 lg:items-end">
+            <div className="lg:col-span-2">
+              <SearchableSelect
+                label="Designation"
+                value={draft.designationId}
+                options={designationOptions}
+                placeholder="Select designation"
+                disabledOptionIds={existingDesignationIds}
+                onChange={(designationId) => setDraft((current) => ({ ...current, designationId }))}
+              />
+            </div>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-slate-600">Staffing Ratio</span>
+              <input
+                type="number"
+                min={0.01}
+                step={0.5}
+                className={FORM_INPUT_CLASS}
+                value={draft.staffingRatio}
+                onChange={(event) => setDraft((current) => ({ ...current, staffingRatio: parseNumericInput(event) }))}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-slate-600">Monthly Salary (₹)</span>
+              <input
+                type="number"
+                min={0}
+                className={FORM_INPUT_CLASS}
+                value={draft.monthlySalary}
+                onChange={(event) => setDraft((current) => ({ ...current, monthlySalary: parseNumericInput(event) }))}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-slate-600">Leave Buffer (%)</span>
+              <input
+                type="number"
+                min={0}
+                className={FORM_INPUT_CLASS}
+                value={draft.leaveBufferPct}
+                onChange={(event) => setDraft((current) => ({ ...current, leaveBufferPct: parseNumericInput(event) }))}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-slate-600">Current Staff</span>
+              <input
+                type="number"
+                min={0}
+                className={FORM_INPUT_CLASS}
+                value={draft.currentStaff}
+                onChange={(event) => setDraft((current) => ({ ...current, currentStaff: parseNumericInput(event) }))}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-slate-600">Position</span>
+              <select
+                aria-label="New designation position status"
+                className={`app-select ${FORM_INPUT_CLASS}`}
+                value={draft.planned ? 'PLANNED' : 'NOT_PLANNED'}
+                onChange={(event) => setDraft((current) => ({ ...current, planned: event.target.value === 'PLANNED' }))}
+              >
+                <option value="PLANNED">Planned</option>
+                <option value="NOT_PLANNED">Not Planned</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="app-button h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+              disabled={!canAddDraft}
+              onClick={handleAddDraft}
+            >
+              + Add
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3 flex justify-end">
         <button
           type="button"
           className="app-button rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
@@ -292,19 +404,6 @@ export function DesignationStaffingTable({
           ⬇ Download
         </button>
       </div>
-
-      {(isAdding || editingIndex !== null) && (
-        <AddDesignationModal
-          designationOptions={designationOptions}
-          initialValue={editingIndex !== null ? lines[editingIndex] : undefined}
-          existingDesignationIds={existingDesignationIds}
-          onCancel={() => {
-            setIsAdding(false)
-            setEditingIndex(null)
-          }}
-          onSave={(line) => handleSave(line, editingIndex)}
-        />
-      )}
     </SectionCard>
   )
 }

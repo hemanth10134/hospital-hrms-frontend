@@ -86,8 +86,13 @@ export interface ManpowerPlanReportRow {
   currentStaff: number
   vacancies: number
   excess: number
+  staffingStatus: string
   monthlyBudget: number
   planStatus: string
+  requestedPositions: number
+  additionalMonthlyBudget: number
+  requestReasons: string
+  requestedBy: string
 }
 
 export interface ManpowerPlanReportFilter {
